@@ -175,9 +175,134 @@ const login = async (req, res) => {
     }
 };
 
+// get User list...
+const getUsers = async (req, res) => {
+    const { page, perPage, key } = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getUserQuery = `SELECT u.*, d.department_name, r.role_name 
+        FROM users u 
+        LEFT JOIN departments d
+        ON d.department_id = u.department_id
+        LEFT JOIN roles r
+        ON r.role_id = u.role_id
+        WHERE 1`;
+
+        let countQuery = `SELECT COUNT(*) AS total FROM users u 
+        FROM users u 
+        LEFT JOIN departments d
+        ON d.department_id = u.department_id
+        LEFT JOIN roles r
+        ON r.role_id = u.role_id
+        WHERE 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            if (lowercaseKey === "activated") {
+                getUserQuery += ` AND status = 1`;
+                countQuery += ` AND status = 1`;
+            } else if (lowercaseKey === "deactivated") {
+                getUserQuery += ` AND status = 0`;
+                countQuery += ` AND status = 0`;
+            } else {
+                getUserQuery += ` AND (LOWER(u.user_name) LIKE '%${lowercaseKey}%' || LOWER(r.role_name) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.user_name) LIKE '%${lowercaseKey}%' || LOWER(r.role_name) LIKE '%${lowercaseKey}%')`;
+            }
+        }
+        getUserQuery += " ORDER BY u.created_at DESC";
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+
+            const start = (page - 1) * perPage;
+            getUserQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getUserQuery);
+        const user = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "User retrieved successfully",
+            data: user,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
+//get user active...
+const getUserWma = async (req, res) => {
+     const { department_id} = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let userQuery = `SELECT u.*, d.department_name, r.role_name 
+        FROM users u 
+        LEFT JOIN departments d
+        ON d.department_id = u.department_id
+        LEFT JOIN roles r
+        ON r.role_id = u.role_id
+        WHERE 1 AND u.status = 1`;
+
+        if (department_id) {
+        userQuery += ` AND u.department_id = '${department_id}'`;
+        }
+
+        userQuery += ` ORDER BY u.user_name`;
+        const userResult = await connection.query(userQuery);
+        const user = userResult[0];
+
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "User retrieved successfully.",
+            data: user,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
     
 module.exports = {
   createUser,
   login,
-  
+  getUsers,
+  getUserWma,
 };

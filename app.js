@@ -7,7 +7,11 @@ app.use("/images", express.static(path.join(__dirname, "images")));
 app.use(express.static('public')); // Assuming 'public' is the directory containing 'images'
 
 
-const userRoute = require('./src/routes/user.route')
+const userRoute = require('./src/routes/user.route');
+const departmentRoute = require('./src/routes/department.route');
+const roleRoute = require('./src/routes/role.route');
+const priorityRoute = require('./src/routes/priority.route');
+const ticketCategories = require('./src/routes/ticket-categories.route');
 
 
 app.use(bodyParser.json());
@@ -25,6 +29,10 @@ app.use((req,res,next)=>{
 });
 
 app.use('/api/user', userRoute);
+app.use('/api/department', departmentRoute);
+app.use('/api/role', roleRoute);
+app.use('/api/priority', priorityRoute);
+app.use('/api/ticket-categories', ticketCategories);
 
 
 module.exports = app;
