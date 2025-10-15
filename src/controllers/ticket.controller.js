@@ -49,10 +49,9 @@ const createTicket = async (req, res)=>{
     const base64PDF = req.body.file_path ? req.body.file_path.trim() :'';
     const assigned_to = req.body.assigned_to ? req.body.assigned_to : '';
     const remark = req.body.remark ? req.body.remark.trim() :'';
-
     const assigned_at = req.body.assigned_at ? req.body.assigned_at : '';
     const remarks = req.body.remarks ? req.body.remarks.trim() :'';
-    const message = req.body.message ? req.body.message.trim() :'';
+    // const message = req.body.message ? req.body.message.trim() :'';
     const old_status = req.body.old_status ? req.body.old_status : null;
     const new_status = req.body.new_status ? req.body.new_status : '';
 
@@ -81,6 +80,11 @@ const createTicket = async (req, res)=>{
             const lastNumber = parseInt(lastTicketNo.split('-')[1], 10);
             ticket_no = `TCK-${lastNumber + 1}`;
         }
+
+        const closedAtQuery = `SELECT * FROM ticket_status_history WHERE LOWER(TRIM(new_status)) = "close" `;
+        const closedAtResult = await pool.query(closedAtQuery);
+        const closed_at = closedAtResult[0].cts;
+
         const insertTicketQuery = "INSERT INTO tickets (ticket_no, user_id, ticket_category_id, priority_id, department_id, subject, description, ticket_status, closed_at)VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)";
         const insertTicketResult = await connection.query(insertTicketQuery,[ticket_no, user_id, ticket_category_id, priority_id, department_id, subject, description, ticket_status, closed_at]);
         const ticket_id = insertTicketResult[0].insertId
@@ -111,10 +115,10 @@ const dbFilePath = `uploads/${fileName}`;
         // }
         
         const insertTicketAssignedQuery = "INSERT INTO ticket_assignments (ticket_id, assigned_to, assigned_by, assigned_at, remark)VALUES(?, ?, ?, ?, ?)";
-        const insertTicketAssignedResult = await connection.query(insertTicketAssignedQuery,[ticket_id, assigned_to, user_id, assigned_at, remark]);
+        const insertTicketAssignedResult = await connection.query(insertTicketAssignedQuery,[ticket_id, assigned_to, user_id, cts, remark]);
 
         let insertTicketStatusHistoryQuery = 'INSERT INTO  ticket_conversations(ticket_id, sender_id, message) VALUES (?, ?, ?)';
-        let insertTicketStatusHistoryValues = [ ticket_id, user_id, message ];
+        let insertTicketStatusHistoryValues = [ ticket_id, user_id, description ];
         let insertTicketStatusHistoryResult = await connection.query(insertTicketStatusHistoryQuery, insertTicketStatusHistoryValues);
 
       
@@ -365,8 +369,6 @@ const getTicket = async (req, res) => {
         if (ticketResult[0].length == 0) {
             return error422("ticket Not Found.", res);
         }
-
-        
         
         const ticket = ticketResult[0][0];
 
