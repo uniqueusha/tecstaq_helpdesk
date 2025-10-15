@@ -48,7 +48,7 @@ const createTicket = async (req, res)=>{
     const ticket_conversation_id = req.body.ticket_conversation_id ? req.body.ticket_conversation_id : null;
     const base64PDF = req.body.file_path ? req.body.file_path.trim() :'';
     const assigned_to = req.body.assigned_to ? req.body.assigned_to : '';
-    const remark = req.body.remark ? req.body.remark.trim() :'';
+    // const remark = req.body.remark ? req.body.remark.trim() :'';
     const assigned_at = req.body.assigned_at ? req.body.assigned_at : '';
     const remarks = req.body.remarks ? req.body.remarks.trim() :'';
     // const message = req.body.message ? req.body.message.trim() :'';
@@ -114,8 +114,8 @@ const dbFilePath = `uploads/${fileName}`;
         //   return error422("User Not Found.", res);
         // }
         
-        const insertTicketAssignedQuery = "INSERT INTO ticket_assignments (ticket_id, assigned_to, assigned_by, assigned_at, remark)VALUES(?, ?, ?, ?, ?)";
-        const insertTicketAssignedResult = await connection.query(insertTicketAssignedQuery,[ticket_id, assigned_to, user_id, assigned_at, remark]);
+        const insertTicketAssignedQuery = "INSERT INTO ticket_assignments (ticket_id, assigned_to, assigned_by, assigned_at, remarks)VALUES(?, ?, ?, ?, ?)";
+        const insertTicketAssignedResult = await connection.query(insertTicketAssignedQuery,[ticket_id, assigned_to, user_id, assigned_at, remarks]);
 
         let insertTicketStatusHistoryQuery = 'INSERT INTO  ticket_conversations(ticket_id, sender_id, message) VALUES (?, ?, ?)';
         let insertTicketStatusHistoryValues = [ ticket_id, user_id, description ];
@@ -133,7 +133,6 @@ const dbFilePath = `uploads/${fileName}`;
             message:"Ticket created successfully."
         })
     } catch (error) {
-      console.log(error);
       
         return error500(error, res);
     } finally{
@@ -386,9 +385,45 @@ const getTicket = async (req, res) => {
     }
 }
 
+//dashboard ticket status count
+const getTicketStatusCount = async (req, res) => {
+    const { user_id, assigned_to } = req.query;
+    let connection = await getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        let ticket_status_total_count = 0;
+        let ticket_status_counts = [];
+
+        // Step 1: Get total count of all ticket (with filters)
+        let totalCountQuery = `
+            SELECT COUNT(*) AS total 
+            FROM tickets t
+            WHERE 1`;
+        const totalCountResult = await connection.query(totalCountQuery);
+        ticket_status_total_count = parseInt(totalCountResult[0][0].total);
+
+        const data = {
+            status: 200,
+            message: "Ticket dashboard Status Count retrieved successfully",
+            ticket_status_counts
+        };
+
+        await connection.commit();
+        return res.status(200).json(data);
+    } catch (error) {
+        await connection.rollback();
+        return error500(error, res);
+    } finally {
+        await connection.release();
+    }
+};
+
 module.exports = {
   createTicket,
   updateTicket,
   getAllTickets,
-  getTicket
+  getTicket,
+  getTicketStatusCount
 };
