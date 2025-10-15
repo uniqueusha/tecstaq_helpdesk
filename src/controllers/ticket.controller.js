@@ -241,7 +241,7 @@ const updateTicket = async (req, res) => {
 
 //all tickets list
 const getAllTickets = async (req, res) => {
-    const { page, perPage, key } = req.query;
+    const { page, perPage, key, user_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -290,6 +290,11 @@ const getAllTickets = async (req, res) => {
                 getTicketsQuery += ` AND LOWER(department_name) LIKE '%${lowercaseKey}%' `;
                 countQuery += ` AND LOWER(department_name) LIKE '%${lowercaseKey}%' `;
             }
+        }
+
+        if (user_id) {
+            getTicketsQuery += ` AND ts.assigned_to = ${user_id}`;
+            countQuery += ` AND ts.assigned_to = ${user_id}`;
         }
         getTicketsQuery += " ORDER BY created_at DESC";
 
