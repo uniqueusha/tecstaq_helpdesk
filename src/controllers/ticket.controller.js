@@ -115,7 +115,7 @@ const dbFilePath = `uploads/${fileName}`;
         // }
         
         const insertTicketAssignedQuery = "INSERT INTO ticket_assignments (ticket_id, assigned_to, assigned_by, assigned_at, remark)VALUES(?, ?, ?, ?, ?)";
-        const insertTicketAssignedResult = await connection.query(insertTicketAssignedQuery,[ticket_id, assigned_to, user_id, cts, remark]);
+        const insertTicketAssignedResult = await connection.query(insertTicketAssignedQuery,[ticket_id, assigned_to, user_id, assigned_at, remark]);
 
         let insertTicketStatusHistoryQuery = 'INSERT INTO  ticket_conversations(ticket_id, sender_id, message) VALUES (?, ?, ?)';
         let insertTicketStatusHistoryValues = [ ticket_id, user_id, description ];
@@ -133,6 +133,8 @@ const dbFilePath = `uploads/${fileName}`;
             message:"Ticket created successfully."
         })
     } catch (error) {
+      console.log(error);
+      
         return error500(error, res);
     } finally{
         if (connection) connection.release();
