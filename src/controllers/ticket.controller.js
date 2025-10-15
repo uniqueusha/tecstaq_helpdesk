@@ -251,9 +251,32 @@ const getAllTickets = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getTicketsQuery = `SELECT * FROM tickets`;
+        let getTicketsQuery = `SELECT t.*, ta.assigned_to, ta.assigned_by, ta.assigned_at, ta.remark, att.file_path, att.uploaded_by, u.user_name, tc.name, p.name AS priority_name, d.department_name,
+        u1.user_name AS assigned_to_name, u2.user_name AS assigned_by_name, u3.user_name AS uploaded_by_name
+        FROM tickets t 
+        LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
+        LEFT JOIN ticket_attachments att ON att.ticket_id = t.ticket_id
+        LEFT JOIN users u ON u.user_id = t.user_id
+        LEFT JOIN ticket_categories tc ON tc.ticket_category_id = t.ticket_category_id
+        LEFT JOIN priorities p ON p.priority_id = t.priority_id
+        LEFT JOIN departments d ON d.department_id = t.department_id
+        LEFT JOIN users u1 ON u1.user_id = ta.assigned_to
+        LEFT JOIN users u2 ON u2.user_id = ta.assigned_by
+        LEFT JOIN users u3 ON u3.user_id = att.uploaded_by 
+        WHERE 1`;
 
-        let countQuery = `SELECT COUNT(*) AS total FROM tickets`;
+        let countQuery = `SELECT COUNT(*) AS total FROM tickets t
+        FROM tickets t 
+        LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
+        LEFT JOIN ticket_attachments att ON att.ticket_id = t.ticket_id
+        LEFT JOIN users u ON u.user_id = t.user_id
+        LEFT JOIN ticket_categories tc ON tc.ticket_category_id = t.ticket_category_id
+        LEFT JOIN priorities p ON p.priority_id = t.priority_id
+        LEFT JOIN departments d ON d.department_id = t.department_id
+        LEFT JOIN users u1 ON u1.user_id = ta.assigned_to
+        LEFT JOIN users u2 ON u2.user_id = ta.assigned_by
+        LEFT JOIN users u3 ON u3.user_id = att.uploaded_by 
+        WHERE 1`;
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
