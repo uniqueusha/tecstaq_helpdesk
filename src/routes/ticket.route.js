@@ -3,7 +3,8 @@ const ticketController = require('../controllers/ticket.controller');
 const router = express.Router();
 const checkAuth = require('../middleware/check.auth');
 
-//get department
+//get ticket
 router.post('/', checkAuth,ticketController.createTicket);
-
+//update ticket
+router.put('/:id', checkAuth,ticketController.updateTicket);
 module.exports = router;
