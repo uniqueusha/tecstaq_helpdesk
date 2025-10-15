@@ -83,7 +83,14 @@ const createUser = async (req, res) => {
         const insertUserValues = [ user_name, email_id, phone_number, role_id, department_id ];
         const insertuserResult = await connection.query(insertUserQuery, insertUserValues);
         const user_id = insertuserResult[0].insertId;
-
+        
+  
+         //insert into agent
+        if (role_id == 3) {
+        const insertAgentQuery = `INSERT INTO customer_agents (customer_id, user_id ) VALUES (?, ?)`;
+        const insertAgentValues = [ user_id, user_id ];
+        const insertAgentResult = await connection.query(insertAgentQuery, insertAgentValues);
+        }
         const hash = await bcrypt.hash(password, 10); // Hash the password using bcrypt
 
         //insert into Untitled
@@ -299,10 +306,49 @@ const getUserWma = async (req, res) => {
     }
 }
 
+//agent
+const getAgentsWma = async (req, res) => {
+     const { user_id} = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let agentQuery = `SELECT ca.* 
+        FROM customer_agents ca
+        WHERE 1 AND status = 1`;
+
+        if (user_id) {
+        agentQuery += ` AND user_id = '${user_id}'`;
+        }
+
+        agentQuery += ` ORDER BY cts`;
+        const agentResult = await connection.query(agentQuery);
+        const agent = agentResult[0];
+
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Customer Agents retrieved successfully.",
+            data: agent,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
     
 module.exports = {
   createUser,
   login,
   getUsers,
   getUserWma,
+  getAgentsWma
 };
