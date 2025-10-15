@@ -394,24 +394,48 @@ const getTicketStatusCount = async (req, res) => {
         await connection.beginTransaction();
 
         let ticket_status_total_count = 0;
-        let ticket_status_counts = [];
+           
+        
 
-        // Step 1: Get total count of all ticket (with filters)
+        // Step 1: Get total count of all tickets (with filters if needed)
         let totalCountQuery = `
             SELECT COUNT(*) AS total 
-            FROM tickets t
-            WHERE 1`;
+            FROM tickets 
+            WHERE 1
+        `;
         const totalCountResult = await connection.query(totalCountQuery);
         ticket_status_total_count = parseInt(totalCountResult[0][0].total);
 
+        const [statusCountResult] = await connection.query(`
+            SELECT 
+                ticket_status,
+                COUNT(*) AS count
+            FROM tickets
+           
+            GROUP BY ticket_status
+        `);
+        // Step 4: Default statuses
+        const defaultStatuses = ["open", "in_progress", "on_hold", "resolved", "closed"];
+
+        // Step 5: Build consistent array
+        const ticket_status_counts = defaultStatuses.map(status => {
+            const found = statusCountResult.find(row => row.ticket_status === status);
+            return {
+                ticket_status: status,
+                count: found ? parseInt(found.count) : 0
+            };
+        });
+
+        // Step 6: Response
         const data = {
             status: 200,
-            message: "Ticket dashboard Status Count retrieved successfully",
+            message: "Ticket dashboard status count retrieved successfully",
+            ticket_status_total_count,
             ticket_status_counts
         };
-
         await connection.commit();
         return res.status(200).json(data);
+
     } catch (error) {
         await connection.rollback();
         return error500(error, res);
@@ -419,6 +443,7 @@ const getTicketStatusCount = async (req, res) => {
         await connection.release();
     }
 };
+
 
 module.exports = {
   createTicket,
