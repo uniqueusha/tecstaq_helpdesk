@@ -394,8 +394,7 @@ const getTicketStatusCount = async (req, res) => {
         await connection.beginTransaction();
 
         let ticket_status_total_count = 0;
-           
-        
+          
 
         // Step 1: Get total count of all tickets (with filters if needed)
         let totalCountQuery = `
@@ -445,10 +444,183 @@ const getTicketStatusCount = async (req, res) => {
 };
 
 
+const getMonthWiseStatusCount = async (req, res) => {
+    const { user_id, assigned_to } = req.query;
+
+    const currentDate = new Date();
+    const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1); // 1st of the month
+    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0); // Last day of the month
+
+    // Use local YYYY-MM-DD format correctly
+
+    const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const formattedStartDate = formatDate(startDate);
+    const formattedEndDate = formatDate(endDate);
+
+    let connection = await getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        // Fetch open and close status counts grouped by date
+        let statusCountQuery = `
+        SELECT 
+          DATE(t.created_at) AS date,
+          COUNT(CASE WHEN t.ticket_status = "open" THEN 1 END) AS open_count,
+          COUNT(CASE WHEN t.ticket_status = "close" THEN 1 END) AS completed_count
+        FROM tickets t
+        WHERE DATE(t.created_at) BETWEEN ? AND ?`;
+
+        // if (user_id) {
+        //     statusCountQuery += ` AND (th.user_id = ${user_id} OR tf.assigned_to = ${user_id})`;
+        // }
+
+        statusCountQuery += ` GROUP BY DATE(t.created_at) ORDER BY DATE(t.created_at)`;
+
+        const [statusCounts] = await connection.query(statusCountQuery, [formattedStartDate, formattedEndDate]);
+
+        // Create a list of all dates in the current month
+        const allDatesInMonth = [];
+
+        let dateIterator = new Date(startDate);
+
+        while (dateIterator <= endDate) {
+            allDatesInMonth.push(formatDate(dateIterator));
+            dateIterator.setDate(dateIterator.getDate() + 1);
+        }
+
+        // Map query result
+
+        const statusCountMap = {};
+
+        statusCounts.forEach(row => {
+
+            const formattedRowDate = formatDate(new Date(row.date));
+
+            statusCountMap[formattedRowDate] = {
+
+                open_count: row.open_count,
+
+                close_count: row.completed_count
+
+            };
+
+        });
+
+        const finalResult = allDatesInMonth.map(date => {
+            const counts = statusCountMap[date] || { open_count: 0, close_count: 0 };
+            return {
+                date,
+                open_count: counts.open_count,
+                close_count: counts.close_count
+            };
+        });
+
+
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Date-wise open and close status counts retrieved successfully",
+            data: finalResult,
+        });
+
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+//today open ticket list
+const getTodayOpenTicketList = async (req, res) => {
+    const newDate = new Date() // Current timestamp
+    const { page, perPage, key, user_id, employee_id } = req.query;
+    
+    let connection = await getConnection();
+
+    try {
+        // Start a transaction
+        await connection.beginTransaction();
+
+        let todayOpenTicketQuery = `SELECT t.*, u.user_name, tc.name, p.name AS priority_name, d.department_name
+        FROM tickets t 
+        LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
+        LEFT JOIN ticket_attachments att ON att.ticket_id = t.ticket_id
+        LEFT JOIN users u ON u.user_id = t.user_id
+        LEFT JOIN ticket_categories tc ON tc.ticket_category_id = t.ticket_category_id
+        LEFT JOIN priorities p ON p.priority_id = t.priority_id
+        LEFT JOIN departments d ON d.department_id = t.department_id
+        WHERE 1 AND t.ticket_status = "open" AND DATE(t.created_at) = ?`;
+
+        let countQuery = `SELECT COUNT(*) AS total FROM tickets t
+LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
+        LEFT JOIN ticket_attachments att ON att.ticket_id = t.ticket_id
+        LEFT JOIN users u ON u.user_id = t.user_id
+        LEFT JOIN ticket_categories tc ON tc.ticket_category_id = t.ticket_category_id
+        LEFT JOIN priorities p ON p.priority_id = t.priority_id
+        LEFT JOIN departments d ON d.department_id = t.department_id
+        WHERE 1 AND t.ticket_status = "open" AND DATE(t.created_at) = ?`;
+
+        // if (key) {
+        //     const lowercaseKey = key.toLowerCase().trim();
+        //     todayTaskListQuery += ` AND (LOWER(tf.task_details) LIKE '%${lowercaseKey}%' || LOWER(th.task_title) LIKE '%${lowercaseKey}%' || LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(p.project_name) LIKE '%${lowercaseKey}%' || LOWER(s.status_name) LIKE '%${lowercaseKey}%')`;
+        //     countQuery += ` AND (LOWER(tf.task_details) LIKE '%${lowercaseKey}%' || LOWER(th.task_title) LIKE '%${lowercaseKey}%' || LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(p.project_name) LIKE '%${lowercaseKey}%' || LOWER(s.status_name) LIKE '%${lowercaseKey}%')`;
+        // }
+
+        // if (user_id) {
+        //     todayTaskListQuery += ` AND th.employee_id = ${user_id}`;
+        //     countQuery += `  AND th.employee_id = ${user_id}`;
+        // }
+
+        todayOpenTicketQuery += " ORDER BY t.created_at DESC";
+
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery, [newDate.toISOString().split('T')[0]]);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            todayOpenTicketQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+        let todayOpenTicketResult = await connection.query(todayOpenTicketQuery, [newDate.toISOString().split('T')[0]]);
+
+        const data = {
+            status: 200,
+            message: "Today Open Ticket retrieved successfully",
+            data: todayOpenTicketResult[0]
+        };
+
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+      console.log(error);
+      
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+
+    }
+};
 module.exports = {
   createTicket,
   updateTicket,
   getAllTickets,
   getTicket,
-  getTicketStatusCount
+  getTicketStatusCount,
+  getMonthWiseStatusCount,
+  getTodayOpenTicketList
 };

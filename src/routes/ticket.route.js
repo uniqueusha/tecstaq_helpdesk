@@ -9,6 +9,10 @@ router.post('/', checkAuth,ticketController.createTicket);
 router.get('/', ticketController.getAllTickets);
 //status count
 router.get('/status-count', ticketController.getTicketStatusCount);
+//Month Wise Status Count
+router.get('/month-wise-status-count', ticketController.getMonthWiseStatusCount);
+//todat open ticket
+router.get('/today-open-ticket', ticketController.getTodayOpenTicketList);
 //by id
 router.get('/:id', ticketController.getTicket)
 //update ticket
