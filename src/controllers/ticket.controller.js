@@ -239,7 +239,124 @@ const updateTicket = async (req, res) => {
     }
 }
 
+//all tickets list
+const getAllTickets = async (req, res) => {
+    const { page, perPage, key } = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let getTicketsQuery = `SELECT * FROM tickets`;
+
+        let countQuery = `SELECT COUNT(*) AS total FROM tickets`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            if (lowercaseKey === "activated") {
+                getTicketsQuery += ` AND status = 1`;
+                countQuery += ` AND status = 1`;
+            } else if (lowercaseKey === "deactivated") {
+                getTicketsQuery += ` AND status = 0`;
+                countQuery += ` AND status = 0`;
+            } else {
+                getTicketsQuery += ` AND LOWER(department_name) LIKE '%${lowercaseKey}%' `;
+                countQuery += ` AND LOWER(department_name) LIKE '%${lowercaseKey}%' `;
+            }
+        }
+        getTicketsQuery += " ORDER BY created_at DESC";
+
+        // Apply pagination if both page and perPage are provided
+        let total = 0;
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+
+            const start = (page - 1) * perPage;
+            getTicketsQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+        }
+
+        const result = await connection.query(getTicketsQuery);
+        const tickets = result[0];
+
+        // Commit the transaction
+        await connection.commit();
+        const data = {
+            status: 200,
+            message: "Tickets retrieved successfully",
+            data: tickets,
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+} 
+
+//Ticket list by id
+const getTicket = async (req, res) => {
+    const ticketId = parseInt(req.params.id);
+    
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const ticketQuery = `SELECT t.*, ta.assigned_to, ta.assigned_by, ta.assigned_at, ta.remark, att.file_path, att.uploaded_by, u.user_name, tc.name, p.name AS priority_name, d.department_name,
+        u1.user_name AS assigned_to_name, u2.user_name AS assigned_by_name, u3.user_name AS uploaded_by_name
+        FROM tickets t 
+        LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
+        LEFT JOIN ticket_attachments att ON att.ticket_id = t.ticket_id
+        LEFT JOIN users u ON u.user_id = t.user_id
+        LEFT JOIN ticket_categories tc ON tc.ticket_category_id = t.ticket_category_id
+        LEFT JOIN priorities p ON p.priority_id = t.priority_id
+        LEFT JOIN departments d ON d.department_id = t.department_id
+        LEFT JOIN users u1 ON u1.user_id = ta.assigned_to
+        LEFT JOIN users u2 ON u2.user_id = ta.assigned_by
+        LEFT JOIN users u3 ON u3.user_id = att.uploaded_by
+        WHERE t.ticket_id = ?`;
+        const ticketResult = await connection.query(ticketQuery, [ticketId]);
+        if (ticketResult[0].length == 0) {
+            return error422("ticket Not Found.", res);
+        }
+
+        
+        
+        const ticket = ticketResult[0][0];
+
+        return res.status(200).json({
+            status: 200,
+            message: "Ticket Retrived Successfully",
+            data: ticket
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
 module.exports = {
   createTicket,
-  updateTicket
+  updateTicket,
+  getAllTickets,
+  getTicket
 };
