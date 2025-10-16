@@ -557,11 +557,12 @@ const getTodayOpenTicketList = async (req, res) => {
         // Start a transaction
         await connection.beginTransaction();
 
-        let todayOpenTicketQuery = `SELECT t.*, u.user_name, tc.name, p.name AS priority_name, d.department_name
+        let todayOpenTicketQuery = `SELECT t.*, u.user_name,ta.assigned_to, tc.name, p.name AS priority_name, d.department_name, u.user_name AS assigned_name 
         FROM tickets t 
         LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
         LEFT JOIN ticket_attachments att ON att.ticket_id = t.ticket_id
         LEFT JOIN users u ON u.user_id = t.user_id
+        LEFT JOIN users u1 ON u1.user_id = ta.assigned_to
         LEFT JOIN ticket_categories tc ON tc.ticket_category_id = t.ticket_category_id
         LEFT JOIN priorities p ON p.priority_id = t.priority_id
         LEFT JOIN departments d ON d.department_id = t.department_id
