@@ -41,6 +41,7 @@ const createUser = async (req, res) => {
   const phone_number = req.body.phone_number ? req.body.phone_number : null;
   const role_id = req.body.role_id ? req.body.role_id : 0;
   const department_id = req.body.department_id ? req.body.department_id : 0;
+  const customerAgent = req.body.customerAgent ? req.body.customerAgent :[];
   const password = "123456";
 
   if (!user_name) {
@@ -84,13 +85,26 @@ const createUser = async (req, res) => {
         const insertuserResult = await connection.query(insertUserQuery, insertUserValues);
         const user_id = insertuserResult[0].insertId;
         
-  
-         //insert into agent
         if (role_id == 3) {
-        const insertAgentQuery = `INSERT INTO customer_agents (customer_id, user_id ) VALUES (?, ?)`;
-        const insertAgentValues = [ user_id, user_id ];
-        const insertAgentResult = await connection.query(insertAgentQuery, insertAgentValues);
+        let customerAgentArray = customerAgent;
+        for (let i = 0; i < customerAgentArray.length; i++) {
+            const elements = customerAgentArray[i];
+            const Technician_id = elements.user_id ? elements.user_id : '';
+          
+             // Check if Technician exists
+              const technicianQuery = "SELECT user_id FROM users WHERE role_id = 2 AND user_id = ?";
+              const technicianResult = await connection.query(technicianQuery,[Technician_id]);
+              if (technicianResult[0].length == 0) {
+                return error422("Technician Not Found.", res);
+              }
+
+            const insertAgentQuery = `INSERT INTO customer_agents (customer_id, user_id ) VALUES (?, ?)`;
+            const insertAgentValues = [ user_id, Technician_id ];
+            const insertAgentResult = await connection.query(insertAgentQuery, insertAgentValues);
         }
+      }
+         
+        
         const hash = await bcrypt.hash(password, 10); // Hash the password using bcrypt
 
         //insert into Untitled
@@ -325,7 +339,7 @@ const getAgentsWma = async (req, res) => {
         WHERE 1 AND ca.status = 1`;
 
         if (user_id) {
-        agentQuery += ` AND ca.user_id = '${user_id}'`;
+        agentQuery += ` AND ca.customer_id = '${user_id}'`;
         }
 
         agentQuery += ` ORDER BY ca.cts`;

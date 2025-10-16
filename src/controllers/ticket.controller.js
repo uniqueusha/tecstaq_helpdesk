@@ -373,6 +373,14 @@ const getTicket = async (req, res) => {
         
         const ticket = ticketResult[0][0];
 
+        // get ticket status history
+        let ticketStatusHistoryQuery = `SELECT tsh.* FROM ticket_status_history tsh
+            
+            WHERE tsh.ticket_id = ?`
+        let ticketStatusHistoryResult = await connection.query(ticketStatusHistoryQuery, [ticketId]);
+        ticket["ticketStatusHistory"] = ticketStatusHistoryResult[0];
+        
+
         return res.status(200).json({
             status: 200,
             message: "Ticket Retrived Successfully",
