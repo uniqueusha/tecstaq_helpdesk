@@ -490,7 +490,7 @@ const getMonthWiseStatusCount = async (req, res) => {
         WHERE DATE(t.created_at) BETWEEN ? AND ?`;
 
         if (user_id) {
-            statusCountQuery += ` AND ta.assigned_to = '${user_id}'`;
+            statusCountQuery += ` AND (ta.assigned_to = '${user_id}' OR t.user_id = '${user_id}')`;
         }
 
         statusCountQuery += ` GROUP BY DATE(t.created_at) ORDER BY DATE(t.created_at)`;
@@ -587,7 +587,7 @@ LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
         // }
 
         if (user_id) {
-            todayOpenTicketQuery += ` AND ta.assigned_to = '${user_id}'`;
+            todayOpenTicketQuery += ` AND (ta.assigned_to = '${user_id}' OR t.user_id = '${user_id}')`;
         }
 
         todayOpenTicketQuery += " ORDER BY t.created_at DESC";
@@ -619,7 +619,6 @@ LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
 
         return res.status(200).json(data);
     } catch (error) {
-      console.log(error);
       
         return error500(error, res);
     } finally {
