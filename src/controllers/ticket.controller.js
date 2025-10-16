@@ -414,14 +414,16 @@ const getTicketStatusCount = async (req, res) => {
         const totalCountResult = await connection.query(totalCountQuery);
         ticket_status_total_count = parseInt(totalCountResult[0][0].total);
 
-        const [statusCountResult] = await connection.query(`
+        const statusCountQuery = `
             SELECT 
                 ticket_status,
                 COUNT(*) AS count
-            FROM tickets
-           
+            FROM tickets 
             GROUP BY ticket_status
-        `);
+        `;
+        
+        const [statusCountResult] = await connection.query(statusCountQuery);
+        
         // Step 4: Default statuses
         const defaultStatuses = ["Open", "In Progress", "On Hold", "Resolved", "Closed"];
 
@@ -480,15 +482,16 @@ const getMonthWiseStatusCount = async (req, res) => {
         // Fetch open and close status counts grouped by date
         let statusCountQuery = `
         SELECT 
-          DATE(t.created_at) AS date,
+          DATE(t.created_at) AS date, ta.assigned_to,
           COUNT(CASE WHEN t.ticket_status = "Open" THEN 1 END) AS open_count,
           COUNT(CASE WHEN t.ticket_status = "Close" THEN 1 END) AS completed_count
         FROM tickets t
+        LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
         WHERE DATE(t.created_at) BETWEEN ? AND ?`;
 
-        // if (user_id) {
-        //     statusCountQuery += ` AND (th.user_id = ${user_id} OR tf.assigned_to = ${user_id})`;
-        // }
+        if (user_id) {
+            statusCountQuery += ` AND ta.assigned_to = '${user_id}'`;
+        }
 
         statusCountQuery += ` GROUP BY DATE(t.created_at) ORDER BY DATE(t.created_at)`;
 
@@ -583,10 +586,9 @@ LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
         //     countQuery += ` AND (LOWER(tf.task_details) LIKE '%${lowercaseKey}%' || LOWER(th.task_title) LIKE '%${lowercaseKey}%' || LOWER(u.first_name) LIKE '%${lowercaseKey}%' || LOWER(u.last_name) LIKE '%${lowercaseKey}%' || LOWER(p.project_name) LIKE '%${lowercaseKey}%' || LOWER(s.status_name) LIKE '%${lowercaseKey}%')`;
         // }
 
-        // if (user_id) {
-        //     todayTaskListQuery += ` AND th.employee_id = ${user_id}`;
-        //     countQuery += `  AND th.employee_id = ${user_id}`;
-        // }
+        if (user_id) {
+            todayOpenTicketQuery += ` AND ta.assigned_to = '${user_id}'`;
+        }
 
         todayOpenTicketQuery += " ORDER BY t.created_at DESC";
 
