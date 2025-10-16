@@ -153,7 +153,7 @@ const updateTicket = async (req, res) => {
     const ticket_conversation_id = req.body.ticket_conversation_id ? req.body.ticket_conversation_id : null;
     const base64PDF = req.body.file_path ? req.body.file_path.trim() :'';
     const assigned_to = req.body.assigned_to ? req.body.assigned_to : '';
-        const remark = req.body.remark ? req.body.remark.trim() :'';
+        // const remark = req.body.remark ? req.body.remark.trim() :'';
 
     const assigned_at = req.body.assigned_at ? req.body.assigned_at : '';
     const remarks = req.body.remarks ? req.body.remarks.trim() :'';
@@ -213,8 +213,8 @@ const updateTicket = async (req, res) => {
         //   return error422("User Not Found.", res);
         // }
         
-        const updateTicketAssignedQuery = "UPDATE ticket_assignments SET ticket_id = ?, assigned_to = ?, assigned_by = ?, assigned_at = ?, remark = ? WHERE ticket_id = ?";
-        const updateTicketAssignedResult = await connection.query(updateTicketAssignedQuery,[ticketId, assigned_to, user_id, assigned_at, remark, ticketId]);
+        const updateTicketAssignedQuery = "UPDATE ticket_assignments SET ticket_id = ?, assigned_to = ?, assigned_by = ?, assigned_at = ?, remarks = ? WHERE ticket_id = ?";
+        const updateTicketAssignedResult = await connection.query(updateTicketAssignedQuery,[ticketId, assigned_to, user_id, assigned_at, remarks, ticketId]);
 
         let insertTicketStatusHistoryQuery = 'INSERT INTO ticket_conversations(ticket_id, sender_id, message) VALUES (?, ?, ?)';
         let insertTicketStatusHistoryValues = [ ticketId, user_id, message ];
