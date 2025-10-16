@@ -256,7 +256,7 @@ const getAllTickets = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let getTicketsQuery = `SELECT t.*, ta.assigned_to, ta.assigned_by, ta.assigned_at, ta.remark, att.file_path, att.uploaded_by, u.user_name, tc.name, p.name AS priority_name, d.department_name,
+        let getTicketsQuery = `SELECT t.*, ta.assigned_to, ta.assigned_by, ta.assigned_at, ta.remarks, att.file_path, att.uploaded_by, u.user_name, tc.name, p.name AS priority_name, d.department_name,
         u1.user_name AS assigned_to_name, u2.user_name AS assigned_by_name, u3.user_name AS uploaded_by_name
         FROM tickets t 
         LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
@@ -353,7 +353,7 @@ const getTicket = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        const ticketQuery = `SELECT t.*, ta.assigned_to, ta.assigned_by, ta.assigned_at, ta.remark, att.file_path, att.uploaded_by, u.user_name, tc.name, p.name AS priority_name, d.department_name,
+        const ticketQuery = `SELECT t.*, ta.assigned_to, ta.assigned_by, ta.assigned_at, ta.remarks, att.file_path, att.uploaded_by, u.user_name, tc.name, p.name AS priority_name, d.department_name,
         u1.user_name AS assigned_to_name, u2.user_name AS assigned_by_name, u3.user_name AS uploaded_by_name
         FROM tickets t 
         LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
