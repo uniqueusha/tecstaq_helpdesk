@@ -298,8 +298,8 @@ const getAllTickets = async (req, res) => {
         }
 
         if (user_id) {
-            getTicketsQuery += ` AND ts.assigned_to = ${user_id}`;
-            countQuery += ` AND ts.assigned_to = ${user_id}`;
+            getTicketsQuery += ` AND ta.assigned_to = ${user_id}`;
+            countQuery += ` AND ta.assigned_to = ${user_id}`;
         }
         getTicketsQuery += " ORDER BY t.created_at DESC";
 

@@ -7,6 +7,8 @@ const checkAuth = require('../middleware/check.auth')
 router.post('/', userController.createUser);
 //login  
 router.post('/login', userController.login);
+//send mail
+router.post('/send-mail', userController.sendEmail)
 //all list
 router.get('/', userController.getUsers);
 //active list

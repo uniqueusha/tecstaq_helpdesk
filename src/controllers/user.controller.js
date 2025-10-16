@@ -1,6 +1,20 @@
 const pool = require("../../db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
+
+const transporter = nodemailer.createTransport({
+    host: "smtp-mail.outlook.com",
+    port: 587,
+    secure: false,
+    auth: {
+        user: "support@tectsaq.com",
+        pass: "Homeoffice@2025#$",
+    },
+    tls: {
+        rejectUnauthorized: false,
+    },
+});
 
 // Function to obtain a database connection
 const getConnection = async () => {
@@ -361,10 +375,97 @@ const getAgentsWma = async (req, res) => {
     }
 }
     
+//send Email 
+const sendEmail = async (req, res) => {
+    const email_id = req.body.email_id;
+    if (!email_id) {
+        return error422("Email is  required.", res);
+    }
+    // Check if email_id exists
+    const query = 'SELECT * FROM users WHERE TRIM(LOWER(email_id)) = ?';
+    const result = await pool.query(query, [email_id.toLowerCase()]);
+    if (result[0].length === 0) {
+        return error422('Email id is not found.', res);
+    }
+
+    let user_name = result[0][0].user_name;
+
+    let connection = await getConnection();
+    try {
+        //Start the transaction
+        await connection.beginTransaction();
+        
+
+        const message = `
+      <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to Tecstaq-desk.com</title>
+          <style>
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+       <h2 style="text-transform: capitalize;">Hello ${user_name},</h2>
+        <p>It seems you requested a password reset for your Tecstaq-desk account. Use the OTP below to complete the process and regain access to your account.</p>
+        <h3>Your OTP: <strong>hhh</strong></h3>
+        <p>For security, this OTP will expire in 5 minutes. Please don’t share this code with anyone. If you didn’t request a password reset, please ignore this email or reach out to our support team for assistance.</p>
+        <h4>What’s Next?</h4>
+        <ol>
+          <li>Enter the OTP on the password reset page.</li>
+          <li>Set your new password, and you’re all set to log back in.</li>
+        <li>Thank you for using Tecstaq-desk Application!</li>
+        </ol>
+        <p>Best regards,<br>The Tecstaq-desk Team</p>
+         </div>
+        </body>
+        </html>`;
+
+        // Validate required fields.
+        if (!email_id || !message) {
+            return res
+                .status(400)
+                .json({ status: "error", message: "Missing required fields" });
+        }
+
+        // Prepare the email message options.
+        const mailOptions = {
+            from: "support@tectstaq.com", // Sender address from environment variables.
+            to: `${email_id}`, // Recipient's name and email address.
+            //    replyTo: "rohitlandage86@gmail.com", // Sets the email address for recipient responses.
+            //  bcc: "sushantsjamdade@gmail.com",
+            bcc: "ushamyadav777@gmail.com",
+            subject: "Reset Your Tecstaq-desk Email", // Subject line.
+            html: message,
+        };
+
+        // Send email 
+        await transporter.sendMail(mailOptions);
+
+        return res.status(200).json({
+            status: 200,
+            message: `Email sent successfully to ${email_id}.`,
+
+        })
+    } catch (error) {
+        return error500(error, res)
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
 module.exports = {
   createUser,
   login,
   getUsers,
   getUserWma,
-  getAgentsWma
+  getAgentsWma,
+  sendEmail
 };
