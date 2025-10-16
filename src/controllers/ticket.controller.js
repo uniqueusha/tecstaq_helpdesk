@@ -376,7 +376,8 @@ const getTicket = async (req, res) => {
         // get ticket status history
         let ticketStatusHistoryQuery = `SELECT tsh.*, u.user_name FROM ticket_status_history tsh 
         LEFT JOIN users u ON u.user_id = tsh.changed_by 
-        WHERE tsh.ticket_id = ?`
+        WHERE tsh.ticket_id = ?`;
+        ticketStatusHistoryQuery += ` ORDER BY tsh.cts`;
         let ticketStatusHistoryResult = await connection.query(ticketStatusHistoryQuery, [ticketId]);
         ticket["ticketStatusHistory"] = ticketStatusHistoryResult[0];
         
