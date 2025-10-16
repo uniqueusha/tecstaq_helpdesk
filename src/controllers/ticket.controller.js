@@ -422,7 +422,7 @@ const getTicketStatusCount = async (req, res) => {
             GROUP BY ticket_status
         `);
         // Step 4: Default statuses
-        const defaultStatuses = ["open", "in_progress", "on_hold", "resolved", "closed"];
+        const defaultStatuses = ["Open", "In Progress", "On Hold", "Resolved", "Closed"];
 
         // Step 5: Build consistent array
         const ticket_status_counts = defaultStatuses.map(status => {
@@ -480,8 +480,8 @@ const getMonthWiseStatusCount = async (req, res) => {
         let statusCountQuery = `
         SELECT 
           DATE(t.created_at) AS date,
-          COUNT(CASE WHEN t.ticket_status = "open" THEN 1 END) AS open_count,
-          COUNT(CASE WHEN t.ticket_status = "close" THEN 1 END) AS completed_count
+          COUNT(CASE WHEN t.ticket_status = "Open" THEN 1 END) AS open_count,
+          COUNT(CASE WHEN t.ticket_status = "Close" THEN 1 END) AS completed_count
         FROM tickets t
         WHERE DATE(t.created_at) BETWEEN ? AND ?`;
 
