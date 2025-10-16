@@ -183,10 +183,10 @@ const updateTicket = async (req, res) => {
         // Update the ticket record with new data
         const updateQuery = `
             UPDATE tickets
-            SET user_id = ?, ticket_category_id = ?, priority_id = ?, department_id = ?, subject = ?, description = ?, ticket_status = ?, closed_at = ?
+            SET  ticket_category_id = ?, priority_id = ?, department_id = ?, subject = ?, description = ?, ticket_status = ?, closed_at = ?
             WHERE ticket_id = ?
         `;
-        await connection.query(updateQuery, [ user_id, ticket_category_id, priority_id, department_id, subject, description, ticket_status, closed_at, ticketId]);
+        await connection.query(updateQuery, [  ticket_category_id, priority_id, department_id, subject, description, ticket_status, closed_at, ticketId]);
 
 
         const cleanedBase64 = base64PDF.replace(/^data:.*;base64,/, "");
@@ -203,8 +203,8 @@ const updateTicket = async (req, res) => {
         fs.writeFileSync(filePath, pdfBuffer);
 
         const dbFilePath = `uploads/${fileName}`;
-        const updateTicketAttachmentQuery = "UPDATE ticket_attachments SET ticket_id = ?, ticket_conversation_id = ?, file_path = ?, uploaded_by = ? WHERE ticket_id = ?";
-        const updateTicketAttachmentResult = await connection.query(updateTicketAttachmentQuery,[ticketId, ticket_conversation_id, dbFilePath, user_id, ticketId]);
+        const updateTicketAttachmentQuery = "UPDATE ticket_attachments SET ticket_id = ?, ticket_conversation_id = ?, file_path = ?,  WHERE ticket_id = ?";
+        const updateTicketAttachmentResult = await connection.query(updateTicketAttachmentQuery,[ticketId, ticket_conversation_id, dbFilePath,  ticketId]);
 
         // //assigned
         // const assignedQuery = "SELECT * FROM users WHERE user_id = ? ";
@@ -213,8 +213,8 @@ const updateTicket = async (req, res) => {
         //   return error422("User Not Found.", res);
         // }
         
-        const updateTicketAssignedQuery = "UPDATE ticket_assignments SET ticket_id = ?, assigned_to = ?, assigned_by = ?, assigned_at = ?, remarks = ? WHERE ticket_id = ?";
-        const updateTicketAssignedResult = await connection.query(updateTicketAssignedQuery,[ticketId, assigned_to, user_id, assigned_at, remarks, ticketId]);
+        const updateTicketAssignedQuery = "UPDATE ticket_assignments SET ticket_id = ?, assigned_to = ?, , assigned_at = ?, remarks = ? WHERE ticket_id = ?";
+        const updateTicketAssignedResult = await connection.query(updateTicketAssignedQuery,[ticketId, assigned_to,  assigned_at, remarks, ticketId]);
 
         let insertTicketStatusHistoryQuery = 'INSERT INTO ticket_conversations(ticket_id, sender_id, message) VALUES (?, ?, ?)';
         let insertTicketStatusHistoryValues = [ ticketId, user_id, message ];
