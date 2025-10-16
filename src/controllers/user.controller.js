@@ -339,7 +339,7 @@ const getAgentsWma = async (req, res) => {
         WHERE 1 AND ca.status = 1`;
 
         if (user_id) {
-        agentQuery += ` AND ca.customer_id = '${user_id}'`;
+        agentQuery += ` AND ca.customer_id = '${user_id}' OR ca.user_id = '${user_id}'`;
         }
 
         agentQuery += ` ORDER BY ca.cts`;
