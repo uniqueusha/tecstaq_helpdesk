@@ -271,7 +271,6 @@ const getAllTickets = async (req, res) => {
         WHERE 1`;
 
         let countQuery = `SELECT COUNT(*) AS total FROM tickets t
-        
         LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
         LEFT JOIN ticket_attachments att ON att.ticket_id = t.ticket_id
         LEFT JOIN users u ON u.user_id = t.user_id

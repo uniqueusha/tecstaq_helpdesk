@@ -326,6 +326,15 @@ const getUser = async (req, res) => {
             return error422("User Not Found.", res);
         }
         const user = userResult[0][0];
+    
+        if (user.role_id == 3){
+        let agentQuery = `SELECT ca.*, u.user_name, u1.user_name AS aechnician_name FROM customer_agents ca
+            LEFT JOIN users u ON u.user_id = ca.user_id
+            LEFT JOIN users u1 ON u1.user_id = ca.customer_id
+            WHERE ca.customer_id = ?`
+        let agentResult = await connection.query(agentQuery, [userId]);
+        user['agent'] = agentResult[0];
+        }
 
         return res.status(200).json({
             status: 200,
