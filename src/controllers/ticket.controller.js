@@ -155,7 +155,7 @@ const updateTicket = async (req, res) => {
     const assigned_to = req.body.assigned_to ? req.body.assigned_to : '';
         // const remark = req.body.remark ? req.body.remark.trim() :'';
 
-    const assigned_at = req.body.assigned_at ? req.body.assigned_at : '';
+    const assigned_at = req.body.assigned_at ? req.body.assigned_at : null;
     const remarks = req.body.remarks ? req.body.remarks.trim() :'';
     const message = req.body.message ? req.body.message.trim() :'';
         const user_id = req.companyData.user_id;
@@ -203,7 +203,7 @@ const updateTicket = async (req, res) => {
         fs.writeFileSync(filePath, pdfBuffer);
 
         const dbFilePath = `uploads/${fileName}`;
-        const updateTicketAttachmentQuery = "UPDATE ticket_attachments SET ticket_id = ?, ticket_conversation_id = ?, file_path = ?,  WHERE ticket_id = ?";
+        const updateTicketAttachmentQuery = "UPDATE ticket_attachments SET ticket_id = ?, ticket_conversation_id = ?, file_path = ?  WHERE ticket_id = ?";
         const updateTicketAttachmentResult = await connection.query(updateTicketAttachmentQuery,[ticketId, ticket_conversation_id, dbFilePath,  ticketId]);
 
         // //assigned
@@ -213,7 +213,7 @@ const updateTicket = async (req, res) => {
         //   return error422("User Not Found.", res);
         // }
         
-        const updateTicketAssignedQuery = "UPDATE ticket_assignments SET ticket_id = ?, assigned_to = ?, , assigned_at = ?, remarks = ? WHERE ticket_id = ?";
+        const updateTicketAssignedQuery = "UPDATE ticket_assignments SET ticket_id = ?, assigned_to = ?, assigned_at = ?, remarks = ? WHERE ticket_id = ?";
         const updateTicketAssignedResult = await connection.query(updateTicketAssignedQuery,[ticketId, assigned_to,  assigned_at, remarks, ticketId]);
 
         let insertTicketStatusHistoryQuery = 'INSERT INTO ticket_conversations(ticket_id, sender_id, message) VALUES (?, ?, ?)';
@@ -246,7 +246,7 @@ const updateTicket = async (req, res) => {
 
 //all tickets list
 const getAllTickets = async (req, res) => {
-    const { page, perPage, key, user_id } = req.query;
+    const { page, perPage, key, user_id, department_id, ticket_category_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -292,8 +292,8 @@ const getAllTickets = async (req, res) => {
                 getTicketsQuery += ` AND status = 0`;
                 countQuery += ` AND status = 0`;
             } else {
-                getTicketsQuery += ` AND LOWER(department_name) LIKE '%${lowercaseKey}%' `;
-                countQuery += ` AND LOWER(department_name) LIKE '%${lowercaseKey}%' `;
+                getTicketsQuery += ` AND (LOWER(u.user_name) LIKE '%${lowercaseKey}%' OR LOWER(t.ticket_status) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND {LOWER(u.user_name) LIKE '%${lowercaseKey}%' OR LOWER(t.ticket_status) LIKE '%${lowercaseKey}%')`;
             }
         }
 
@@ -301,6 +301,17 @@ const getAllTickets = async (req, res) => {
             getTicketsQuery += ` AND (ta.assigned_to = ${user_id} OR t.user_id = ${user_id} )`;
             countQuery += ` AND (ta.assigned_to = ${user_id} OR t.user_id = ${user_id} )`;
         }
+
+        if (department_id) {
+            getTicketsQuery += ` AND t.department_id = ${department_id}`;
+            countQuery += ` AND t.department_id = ${department_id}`;
+        }
+
+        if (ticket_category_id) {
+            getTicketsQuery += ` AND t.ticket_category_id = ${ticket_category_id} `;
+            countQuery += ` AND t.ticket_category_id = ${ticket_category_id} `;
+        }
+
         getTicketsQuery += " ORDER BY t.created_at DESC";
 
         // Apply pagination if both page and perPage are provided

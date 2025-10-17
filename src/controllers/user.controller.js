@@ -1,21 +1,32 @@
 const pool = require("../../db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+// const nodemailer = require("nodemailer");
+
+// const transporter = nodemailer.createTransport({
+//     host: "smtp.office365.com",
+//     port: 587,
+//     secure: false,
+//     auth: {
+//         user: "support@tectsaq.com",
+//         pass: "Homeoffice@2025#$",
+//     },
+//     tls: {
+//         rejectUnauthorized: false,
+//     },
+// });
+
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-    host: "smtp-mail.outlook.com",
+    host: "smtp.office365.com",
     port: 587,
     secure: false,
     auth: {
-        user: "support@tectsaq.com",
-        pass: "Homeoffice@2025#$",
-    },
-    tls: {
-        rejectUnauthorized: false,
-    },
+        user: "support@tecstaq.com",
+        pass: "your_app_password_here" // App password if MFA
+    }
 });
-
 // Function to obtain a database connection
 const getConnection = async () => {
   try {
@@ -291,6 +302,153 @@ const getUsers = async (req, res) => {
     }
 }
 
+//User by id
+const getUser = async (req, res) => {
+    const userId = parseInt(req.params.id);
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const userQuery = `SELECT u.*, d.department_name, r.role_name 
+        FROM users u 
+        LEFT JOIN departments d
+        ON d.department_id = u.department_id
+        LEFT JOIN roles r
+        ON r.role_id = u.role_id
+        WHERE 1 AND u.user_id = ? `;
+        const userResult = await connection.query(userQuery, [userId]);
+        if (userResult[0].length == 0) {
+            return error422("User Not Found.", res);
+        }
+        const user = userResult[0][0];
+
+        return res.status(200).json({
+            status: 200,
+            message: "User Retrived Successfully",
+            data: user
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
+//Update User
+const updateUser = async (req, res) => {
+    const user_name = req.body.user_name ? req.body.user_name.trim() : "";
+    const email_id = req.body.email_id ? req.body.email_id.trim() : "";
+    const phone_number = req.body.phone_number ? req.body.phone_number : null;
+    const role_id = req.body.role_id ? req.body.role_id : 0;
+    const department_id = req.body.department_id ? req.body.department_id : 0;
+    const customerAgent = req.body.customerAgent ? req.body.customerAgent :[];
+    if (!user_name) {
+        return error422("User name is required.", res);
+    } else if (!email_id) {
+        return error422("Email id is required.", res);
+    } else if (!phone_number) {
+        return error422("Phone number is required.", res);
+    }
+
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if user exists
+        const userQuery = "SELECT * FROM users WHERE user_id  = ?";
+        const userResult = await connection.query(userQuery, [userId]);
+        if (userResult[0].length === 0) {
+            return error422("User Not Found.", res);
+        }
+
+        // Update the user record with new data
+        const updateQuery = `
+            UPDATE users
+            SET user_name = ?, email_id = ?, phone_number = ?, role_id = ?, department_id = ?
+            WHERE user_id = ?
+        `;
+
+        await connection.query(updateQuery, [ user_name, email_id, phone_number, role_id, department_id, userId]);
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "User updated successfully.",
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
+//status change of user...
+const onStatusChange = async (req, res) => {
+    const userId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
+
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the user exists
+        const userQuery = "SELECT * FROM users WHERE user_id = ? ";
+        const userResult = await connection.query(userQuery, [userId]);
+
+        if (userResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "User not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+
+        // Soft update the user
+        const updateQuery = `
+            UPDATE users
+            SET status = ?
+            WHERE user_id = ?
+        `;
+
+        await connection.query(updateQuery, [status, userId]);
+
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `User ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
+
 //get user active...
 const getUserWma = async (req, res) => {
      const { department_id} = req.query;
@@ -310,6 +468,49 @@ const getUserWma = async (req, res) => {
         LEFT JOIN roles r
         ON r.role_id = u.role_id
         WHERE 1 AND u.status = 1`;
+
+        if (department_id) {
+        userQuery += ` AND u.department_id = '${department_id}'`;
+        }
+
+        userQuery += ` ORDER BY u.user_name`;
+        const userResult = await connection.query(userQuery);
+        const user = userResult[0];
+
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "User retrieved successfully.",
+            data: user,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
+//get Technician active...
+const getTechnicianWma = async (req, res) => {
+     const { department_id} = req.query;
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let userQuery = `SELECT u.*, d.department_name, r.role_name 
+        FROM users u 
+        LEFT JOIN departments d
+        ON d.department_id = u.department_id
+        LEFT JOIN roles r
+        ON r.role_id = u.role_id
+        WHERE 1 AND u.status = 1 AND u.role_id = 2`;
 
         if (department_id) {
         userQuery += ` AND u.department_id = '${department_id}'`;
@@ -376,90 +577,116 @@ const getAgentsWma = async (req, res) => {
 }
     
 //send Email 
+// const sendEmail = async (req, res) => {
+//     const email_id = req.body.email_id;
+//     if (!email_id) {
+//         return error422("Email is  required.", res);
+//     }
+    
+//     let connection = await getConnection();
+//     try {
+//         //Start the transaction
+//         await connection.beginTransaction();
+        
+//         const message = `
+//       <!DOCTYPE html>
+//         <html lang="en">
+//         <head>
+//           <meta charset="UTF-8">
+//           <title>Welcome to Tecstaq-desk.com</title>
+//           <style>
+//               div{
+//               font-family: Arial, sans-serif; 
+//                margin: 0px;
+//                 padding: 0px;
+//                 color:black;
+//               }
+//           </style>
+//         </head>
+//         <body>
+//         <div>
+//        <h2 style="text-transform: capitalize;">Hello world</h2>
+//          </div>
+//         </body>
+//         </html>`;
+
+//         // Validate required fields.
+//         if (!email_id || !message) {
+//             return res
+//                 .status(400)
+//                 .json({ status: "error", message: "Missing required fields" });
+//         }
+
+//         // Prepare the email message options.
+//         const mailOptions = {
+//             from: "support@tectstaq.com", // Sender address from environment variables.
+//             to: `${email_id}`, // Recipient's name and email address.
+//             bcc: "sushantsjamdade@gmail.com",
+//             subject: "Reset Your Tecstaq-desk Email", // Subject line.
+//             html: message,
+//         };
+
+//         // Send email 
+//         await transporter.sendMail(mailOptions);
+
+//         return res.status(200).json({
+//             status: 200,
+//             message: `Email sent successfully to ${email_id}.`,
+
+//         })
+//     } catch (error) {
+//         return error500(error, res)
+//     } finally {
+//         if (connection) connection.release()
+//     }
+// }
+
 const sendEmail = async (req, res) => {
     const email_id = req.body.email_id;
-    if (!email_id) {
-        return error422("Email is  required.", res);
-    }
-    // Check if email_id exists
-    const query = 'SELECT * FROM users WHERE TRIM(LOWER(email_id)) = ?';
-    const result = await pool.query(query, [email_id.toLowerCase()]);
-    if (result[0].length === 0) {
-        return error422('Email id is not found.', res);
-    }
-
-    let user_name = result[0][0].user_name;
+    if (!email_id) return error422("Email is required.", res);
 
     let connection = await getConnection();
     try {
-        //Start the transaction
         await connection.beginTransaction();
-        
 
         const message = `
-      <!DOCTYPE html>
+        <!DOCTYPE html>
         <html lang="en">
         <head>
           <meta charset="UTF-8">
           <title>Welcome to Tecstaq-desk.com</title>
           <style>
-              div{
-              font-family: Arial, sans-serif; 
-               margin: 0px;
-                padding: 0px;
-                color:black;
-              }
+              div { font-family: Arial, sans-serif; margin: 0; padding: 0; color:black; }
           </style>
         </head>
         <body>
         <div>
-       <h2 style="text-transform: capitalize;">Hello ${user_name},</h2>
-        <p>It seems you requested a password reset for your Tecstaq-desk account. Use the OTP below to complete the process and regain access to your account.</p>
-        <h3>Your OTP: <strong>hhh</strong></h3>
-        <p>For security, this OTP will expire in 5 minutes. Please don’t share this code with anyone. If you didn’t request a password reset, please ignore this email or reach out to our support team for assistance.</p>
-        <h4>What’s Next?</h4>
-        <ol>
-          <li>Enter the OTP on the password reset page.</li>
-          <li>Set your new password, and you’re all set to log back in.</li>
-        <li>Thank you for using Tecstaq-desk Application!</li>
-        </ol>
-        <p>Best regards,<br>The Tecstaq-desk Team</p>
-         </div>
+           <h2>Hello world</h2>
+        </div>
         </body>
         </html>`;
 
-        // Validate required fields.
-        if (!email_id || !message) {
-            return res
-                .status(400)
-                .json({ status: "error", message: "Missing required fields" });
-        }
-
-        // Prepare the email message options.
         const mailOptions = {
-            from: "support@tectstaq.com", // Sender address from environment variables.
-            to: `${email_id}`, // Recipient's name and email address.
-            //    replyTo: "rohitlandage86@gmail.com", // Sets the email address for recipient responses.
-            //  bcc: "sushantsjamdade@gmail.com",
-            bcc: "ushamyadav777@gmail.com",
-            subject: "Reset Your Tecstaq-desk Email", // Subject line.
+            from: "support@tecstaq.com",
+            to: email_id,
+            bcc: "sushantsjamdade@gmail.com",
+            subject: "Reset Your Tecstaq-desk Email",
             html: message,
         };
 
-        // Send email 
         await transporter.sendMail(mailOptions);
 
         return res.status(200).json({
             status: 200,
-            message: `Email sent successfully to ${email_id}.`,
-
-        })
+            message: `Email sent successfully to ${email_id}`
+        });
     } catch (error) {
-        return error500(error, res)
+        return error500(error, res);
     } finally {
-        if (connection) connection.release()
+        if (connection) connection.release();
     }
-}
+};
+
 
 module.exports = {
   createUser,
@@ -467,5 +694,9 @@ module.exports = {
   getUsers,
   getUserWma,
   getAgentsWma,
-  sendEmail
+  sendEmail,
+  getTechnicianWma,
+  getUser,
+  updateUser,
+  onStatusChange
 };

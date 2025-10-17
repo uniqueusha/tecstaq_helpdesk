@@ -8,12 +8,20 @@ router.post('/', userController.createUser);
 //login  
 router.post('/login', userController.login);
 //send mail
-router.post('/send-mail', userController.sendEmail)
+router.post('/send-email', userController.sendEmail);
 //all list
 router.get('/', userController.getUsers);
 //active list
 router.get('/wma', userController.getUserWma);
 //active customer agent
 router.get('/customer-wma', userController.getAgentsWma);
+//active technician
+router.get('/technician-wma', userController.getTechnicianWma);
+//by id 
+router.get('/:id', userController.getUser);
+//update user
+router.put('/:id', userController.updateUser);
+//status change
+router.patch('/:id', userController.onStatusChange)
 
 module.exports = router
