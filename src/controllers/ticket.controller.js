@@ -246,7 +246,7 @@ const updateTicket = async (req, res) => {
 
 //all tickets list
 const getAllTickets = async (req, res) => {
-    const { page, perPage, key, user_id, department_id, ticket_category_id, assigned_to, fromDate, toDate, ticket_status } = req.query;
+    const { page, perPage, key, user_id, department_id, ticket_category_id, assigned_to, fromDate, toDate, ticket_status, priority_id } = req.query;
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -308,7 +308,7 @@ const getAllTickets = async (req, res) => {
         }
 
         if (assigned_to) {
-            getTicketsQuery += ` AND ta.ta.assigned_to = ${assigned_to}`;
+            getTicketsQuery += ` AND ta.assigned_to = ${assigned_to}`;
             countQuery += ` AND ta.assigned_to = ${assigned_to}`;
         }
 
@@ -365,6 +365,8 @@ const getAllTickets = async (req, res) => {
 
         return res.status(200).json(data);
     } catch (error) {
+        console.log(error);
+        
         return error500(error, res);
     } finally {
         if (connection) connection.release()
