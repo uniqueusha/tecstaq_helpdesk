@@ -242,7 +242,7 @@ const getUsers = async (req, res) => {
         WHERE 1`;
 
         let countQuery = `SELECT COUNT(*) AS total FROM users u 
-        FROM users u 
+       
         LEFT JOIN departments d
         ON d.department_id = u.department_id
         LEFT JOIN roles r
