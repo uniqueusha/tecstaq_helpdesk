@@ -49,7 +49,7 @@ const createTicket = async (req, res)=>{
     const base64PDF = req.body.file_path ? req.body.file_path.trim() :'';
     const assigned_to = req.body.assigned_to ? req.body.assigned_to : '';
     // const remark = req.body.remark ? req.body.remark.trim() :'';
-    const assigned_at = req.body.assigned_at ? req.body.assigned_at : '';
+    // const assigned_at = req.body.assigned_at ? req.body.assigned_at : '';
     const remarks = req.body.remarks ? req.body.remarks.trim() :'';
     // const message = req.body.message ? req.body.message.trim() :'';
     const old_status = req.body.old_status ? req.body.old_status : null;
@@ -114,8 +114,8 @@ const dbFilePath = `uploads/${fileName}`;
         //   return error422("User Not Found.", res);
         // }
         
-        const insertTicketAssignedQuery = "INSERT INTO ticket_assignments (ticket_id, assigned_to, assigned_by, assigned_at, remarks)VALUES(?, ?, ?, ?, ?)";
-        const insertTicketAssignedResult = await connection.query(insertTicketAssignedQuery,[ticket_id, assigned_to, user_id, assigned_at, remarks]);
+        const insertTicketAssignedQuery = "INSERT INTO ticket_assignments (ticket_id, assigned_to, assigned_by, remarks)VALUES(?, ?, ?, ?)";
+        const insertTicketAssignedResult = await connection.query(insertTicketAssignedQuery,[ticket_id, assigned_to, user_id,  remarks]);
 
         let insertTicketStatusHistoryQuery = 'INSERT INTO  ticket_conversations(ticket_id, sender_id, message) VALUES (?, ?, ?)';
         let insertTicketStatusHistoryValues = [ ticket_id, user_id, description ];
@@ -246,7 +246,7 @@ const updateTicket = async (req, res) => {
 
 //all tickets list
 const getAllTickets = async (req, res) => {
-    const { page, perPage, key, user_id, department_id, ticket_category_id } = req.query;
+    const { page, perPage, key, user_id, department_id, ticket_category_id, assigned_to, fromDate, toDate, ticket_status } = req.query;
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -293,13 +293,28 @@ const getAllTickets = async (req, res) => {
                 countQuery += ` AND status = 0`;
             } else {
                 getTicketsQuery += ` AND (LOWER(u.user_name) LIKE '%${lowercaseKey}%' OR LOWER(t.ticket_status) LIKE '%${lowercaseKey}%')`;
-                countQuery += ` AND {LOWER(u.user_name) LIKE '%${lowercaseKey}%' OR LOWER(t.ticket_status) LIKE '%${lowercaseKey}%')`;
+                countQuery += ` AND (LOWER(u.user_name) LIKE '%${lowercaseKey}%' OR LOWER(t.ticket_status) LIKE '%${lowercaseKey}%')`;
             }
+        }
+
+        if (fromDate && toDate) {
+            getTaskHeaderQuery += ` AND DATE(t.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
+            countQuery += ` AND DATE(t.created_at) BETWEEN '${fromDate}' AND '${toDate}'`;
         }
 
         if (user_id) {
             getTicketsQuery += ` AND (ta.assigned_to = ${user_id} OR t.user_id = ${user_id} )`;
             countQuery += ` AND (ta.assigned_to = ${user_id} OR t.user_id = ${user_id} )`;
+        }
+
+        if (assigned_to) {
+            getTicketsQuery += ` AND ta.ta.assigned_to = ${assigned_to}`;
+            countQuery += ` AND ta.assigned_to = ${assigned_to}`;
+        }
+
+        if (priority_id) {
+            getTicketsQuery += ` AND t.priority_id = ${priority_id}`;
+            countQuery += ` AND t.priority_id = ${priority_id}`;
         }
 
         if (department_id) {
@@ -312,6 +327,10 @@ const getAllTickets = async (req, res) => {
             countQuery += ` AND t.ticket_category_id = ${ticket_category_id} `;
         }
 
+        if (ticket_status) {
+            getTicketsQuery += ` AND LOWER(t.ticket_status) = LOWER('${ticket_status}')`;
+            countQuery += ` AND LOWER(t.ticket_status) = LOWER('${ticket_status}')`;
+        } 
         getTicketsQuery += " ORDER BY t.created_at DESC";
 
         // Apply pagination if both page and perPage are provided
@@ -495,7 +514,7 @@ const getMonthWiseStatusCount = async (req, res) => {
         SELECT 
           DATE(t.created_at) AS date, ta.assigned_to,
           COUNT(CASE WHEN t.ticket_status = "Open" THEN 1 END) AS open_count,
-          COUNT(CASE WHEN t.ticket_status = "Close" THEN 1 END) AS completed_count
+          COUNT(CASE WHEN t.ticket_status = "Closed" THEN 1 END) AS completed_count
         FROM tickets t
         LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
         WHERE DATE(t.created_at) BETWEEN ? AND ?`;

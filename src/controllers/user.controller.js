@@ -1,21 +1,6 @@
 const pool = require("../../db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-// const nodemailer = require("nodemailer");
-
-// const transporter = nodemailer.createTransport({
-//     host: "smtp.office365.com",
-//     port: 587,
-//     secure: false,
-//     auth: {
-//         user: "support@tectsaq.com",
-//         pass: "Homeoffice@2025#$",
-//     },
-//     tls: {
-//         rejectUnauthorized: false,
-//     },
-// });
-
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
@@ -23,10 +8,25 @@ const transporter = nodemailer.createTransport({
     port: 587,
     secure: false,
     auth: {
-        user: "support@tecstaq.com",
-        pass: "your_app_password_here" // App password if MFA
-    }
-});
+        user: "support@tectsaq.com",
+        pass: "Homeoffice@2025#$",
+    },
+    tls: {
+        rejectUnauthorized: false,
+    },
+ });
+
+// const nodemailer = require("nodemailer");
+
+// const transporter = nodemailer.createTransport({
+//     host: "smtp.office365.com",
+//     port: 587,
+//     secure: false,
+//     auth: {
+//         user: "support@tecstaq.com",
+//         pass: "your_app_password_here" // App password if MFA
+//     }
+// });
 // Function to obtain a database connection
 const getConnection = async () => {
   try {
