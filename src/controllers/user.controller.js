@@ -4,29 +4,17 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-    host: "smtp.office365.com",
+    host: "smtp-mail.outlook.com",
     port: 587,
     secure: false,
     auth: {
-        user: "support@tectsaq.com",
+        user: "support@tecstaq.com",
         pass: "Homeoffice@2025#$",
     },
     tls: {
         rejectUnauthorized: false,
     },
  });
-
-// const nodemailer = require("nodemailer");
-
-// const transporter = nodemailer.createTransport({
-//     host: "smtp.office365.com",
-//     port: 587,
-//     secure: false,
-//     auth: {
-//         user: "support@tecstaq.com",
-//         pass: "your_app_password_here" // App password if MFA
-//     }
-// });
 // Function to obtain a database connection
 const getConnection = async () => {
   try {
@@ -98,7 +86,6 @@ const createUser = async (req, res) => {
         return error422('Email id is already exists.', res);
     }
     
-
     // Attempt to obtain a database connection
     let connection = await getConnection();
     try {
@@ -127,8 +114,7 @@ const createUser = async (req, res) => {
             const insertAgentValues = [ user_id, Technician_id ];
             const insertAgentResult = await connection.query(insertAgentQuery, insertAgentValues);
         }
-      }
-         
+    }
         
         const hash = await bcrypt.hash(password, 10); // Hash the password using bcrypt
 
@@ -140,10 +126,68 @@ const createUser = async (req, res) => {
 
         //commit the transation
         await connection.commit();
-        res.status(200).json({
-            status: 200,
-            message: `User added successfully`,
-        });
+        // res.status(200).json({
+        //     status: 200,
+        //     message: `User added successfully`,
+        // });
+
+        // try {
+        const message = `
+      <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to test</title>
+          <style>
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+       <h2 style="text-transform: capitalize;">Hi ${user_name},</h2>
+       <h3>Welcome to Tecstaq!</h3>
+
+        <p>Your account has been successfully created. Here are your login details:</p>
+        <p>Email: ${email_id}</p>
+        <p>Temporary Password: ${password}</P>
+        <p>You can log in using the following link:
+          <a href="https://desk.tecstaq.com/">https://desk.tecstaq.com/</a></p>
+          <p>For security reasons, please change your password after your first login.</p>
+          <p>If you didn’t request this account or believe this was created in error, please contact our support team at support@tecstaq.com.</p>
+          <p>Thank you,</p>
+          <p><strong>Tecstaq Support</strong></p>
+
+        </div>
+        </body>
+        </html>`;
+
+        // Prepare the email message options.
+        const mailOptions = {
+            from: "support@tecstaq.com", // Sender address from environment variables.
+            to: `${email_id}`, // Recipient's name and email address."sushantsjamdade@gmail.com",
+            bcc: ["rohitlandage86@gmail.com","sushantsjamdade@gmail.com","ushamyadav777@gmail.com"],
+            subject: "Welcome to Tecstaq HelpDesk Support! Your Account Has Been Created", // Subject line.
+            html: message,
+        };
+
+        try {
+      await transporter.sendMail(mailOptions);
+      return res.status(200).json({
+        status: 200,
+        message: `User created successfully and email sent to ${email_id}.`,
+      });
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
+      return res.status(200).json({
+        status: 200,
+        message: "User created successfully, but failed to send email.",
+      });
+    }
     } catch (error) {
         await connection.rollback();
         return error500(error, res);
@@ -284,6 +328,7 @@ const getUsers = async (req, res) => {
             message: "User retrieved successfully",
             data: user,
         };
+
         // Add pagination information if provided
         if (page && perPage) {
             data.pagination = {
@@ -388,6 +433,25 @@ const updateUser = async (req, res) => {
         `;
 
         await connection.query(updateQuery, [ user_name, email_id, phone_number, role_id, department_id, userId]);
+
+        if (role_id == 3) {
+        let customerAgentArray = customerAgent;
+        for (let i = 0; i < customerAgentArray.length; i++) {
+            const elements = customerAgentArray[i];
+            const Technician_id = elements.user_id ? elements.user_id : '';
+          
+             // Check if Technician exists
+              const technicianQuery = "SELECT user_id FROM users WHERE role_id = 2 AND user_id = ?";
+              const technicianResult = await connection.query(technicianQuery,[Technician_id]);
+              if (technicianResult[0].length == 0) {
+                return error422("Technician Not Found.", res);
+              }
+
+            const insertAgentQuery = `INSERT INTO customer_agents (customer_id, user_id ) VALUES (?, ?)`;
+            const insertAgentValues = [ user_id, Technician_id ];
+            const insertAgentResult = await connection.query(insertAgentQuery, insertAgentValues);
+        }
+    }
         // Commit the transaction
         await connection.commit();
 
@@ -584,102 +648,99 @@ const getAgentsWma = async (req, res) => {
         if (connection) connection.release()
     }
 }
-    
-//send Email 
+
 // const sendEmail = async (req, res) => {
 //     const email_id = req.body.email_id;
-//     if (!email_id) {
-//         return error422("Email is  required.", res);
-//     }
-    
+//     if (!email_id) return error422("Email is required.", res);
+
 //     let connection = await getConnection();
 //     try {
-//         //Start the transaction
 //         await connection.beginTransaction();
-        
+
 //         const message = `
-//       <!DOCTYPE html>
+//         <!DOCTYPE html>
 //         <html lang="en">
 //         <head>
 //           <meta charset="UTF-8">
 //           <title>Welcome to Tecstaq-desk.com</title>
 //           <style>
-//               div{
-//               font-family: Arial, sans-serif; 
-//                margin: 0px;
-//                 padding: 0px;
-//                 color:black;
-//               }
+//               div { font-family: Arial, sans-serif; margin: 0; padding: 0; color:black; }
 //           </style>
 //         </head>
 //         <body>
 //         <div>
-//        <h2 style="text-transform: capitalize;">Hello world</h2>
-//          </div>
+//            <h2>Hello world</h2>
+//         </div>
 //         </body>
 //         </html>`;
 
-//         // Validate required fields.
-//         if (!email_id || !message) {
-//             return res
-//                 .status(400)
-//                 .json({ status: "error", message: "Missing required fields" });
-//         }
-
-//         // Prepare the email message options.
 //         const mailOptions = {
-//             from: "support@tectstaq.com", // Sender address from environment variables.
-//             to: `${email_id}`, // Recipient's name and email address.
+//             from: "support@tecstaq.com",
+//             to: email_id,
 //             bcc: "sushantsjamdade@gmail.com",
-//             subject: "Reset Your Tecstaq-desk Email", // Subject line.
+//             subject: "Reset Your Tecstaq-desk Email",
 //             html: message,
 //         };
 
-//         // Send email 
 //         await transporter.sendMail(mailOptions);
 
 //         return res.status(200).json({
 //             status: 200,
-//             message: `Email sent successfully to ${email_id}.`,
-
-//         })
+//             message: `Email sent successfully to ${email_id}`
+//         });
 //     } catch (error) {
-//         return error500(error, res)
+//         return error500(error, res);
 //     } finally {
-//         if (connection) connection.release()
+//         if (connection) connection.release();
 //     }
-// }
+// };
 
 const sendEmail = async (req, res) => {
-    const email_id = req.body.email_id;
-    if (!email_id) return error422("Email is required.", res);
-
-    let connection = await getConnection();
+    const { email_id } = req.query;
+    if (!email_id) {
+        return error422("Email is  required.", res);
+    }
     try {
-        await connection.beginTransaction();
-
         const message = `
-        <!DOCTYPE html>
+      <!DOCTYPE html>
         <html lang="en">
         <head>
           <meta charset="UTF-8">
-          <title>Welcome to Tecstaq-desk.com</title>
+          <title>Welcome to test</title>
           <style>
-              div { font-family: Arial, sans-serif; margin: 0; padding: 0; color:black; }
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
           </style>
         </head>
         <body>
         <div>
-           <h2>Hello world</h2>
-        </div>
+       <h2 style="text-transform: capitalize;">Hello User,</h2>
+        
+        <li>Thank you for using test Application!</li>
+        </ol>
+        <p>Best regards,<br>Team test</p>
+        
+         </div>
         </body>
         </html>`;
 
+        // Validate required fields.
+        if (!email_id || !message) {
+            return res
+                .status(400)
+                .json({ status: "error", message: "Missing required fields" });
+        }
+
+        // Prepare the email message options.
         const mailOptions = {
-            from: "support@tecstaq.com",
-            to: email_id,
-            bcc: "sushantsjamdade@gmail.com",
-            subject: "Reset Your Tecstaq-desk Email",
+            from: "support@tecstaq.com", // Sender address from environment variables.
+            to: `${email_id}`, // Recipient's name and email address.
+            bcc: ["rohitlandage86@gmail.com","sushantsjamdade@gmail.com","ushamyadav777@gmail.com"],
+            subject: "Testing mail", // Subject line.
             html: message,
         };
 
@@ -687,16 +748,13 @@ const sendEmail = async (req, res) => {
 
         return res.status(200).json({
             status: 200,
-            message: `Email sent successfully to ${email_id}`
-        });
+            message: `Mail sent successfully to ${email_id}.`,
+
+        })
     } catch (error) {
-        return error500(error, res);
-    } finally {
-        if (connection) connection.release();
+        return error500(error, res)
     }
-};
-
-
+}
 module.exports = {
   createUser,
   login,

@@ -13,6 +13,7 @@ router.post('/send-email', userController.sendEmail);
 router.get('/', userController.getUsers);
 //active list
 router.get('/wma', userController.getUserWma);
+// router.get('/test-mail', userController.testMail);
 //active customer agent
 router.get('/customer-wma', userController.getAgentsWma);
 //active technician

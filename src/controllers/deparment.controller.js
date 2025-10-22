@@ -34,6 +34,151 @@ error404 = (message, res) => {
   });
 };
 
+//create department
+const createDepartment = async (req, res)=>{
+    const department_name = req.body.department_name ? req.body.department_name.trim() :'';
+    const description = req.body.description ? req.body.description.trim():'';
+    
+    if (!department_name) {
+        return error422("Department name is required.", res);
+    }  
+
+    let connection = await getConnection();
+
+    const isDepartmentExist = "SELECT * FROM departments WHERE LOWER(TRIM(department_name)) = ?";
+    const isDepartmentResult = await connection.query(isDepartmentExist,[department_name.toLowerCase()]);
+    if (isDepartmentResult[0].length>0) {
+        return error422("Department is already is exist.", res);
+    }
+
+    try {
+        // start the transaction
+        await connection.beginTransaction();
+        const insertQuery = "INSERT INTO departments (department_name, description)VALUES(?, ?)";
+        const result = await connection.query(insertQuery,[department_name, description]);
+
+        await connection.commit()
+        return res.status(200).json({
+            status:200,
+            message:"Department created successfully."
+        })
+    } catch (error) {
+        if (connection) connection.rollback();
+        return error500(error, res);
+    } finally{
+        if (connection) connection.release();
+    }
+}
+
+//Update Department
+const updateDepartment = async (req, res) => {
+    const departmentId = parseInt(req.params.id);
+    const department_name = req.body.department_name ? req.body.department_name.trim() : '';
+    const description = req.body.description ? req.body.description.trim():'';
+
+    if (!department_name) {
+        return error422("Department name is required.", res);
+    }
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if department exists
+        const departmentQuery = "SELECT * FROM departments WHERE department_id  = ?";
+        const departmentResult = await connection.query(departmentQuery, [departmentId]);
+        if (departmentResult[0].length == 0) {
+            return error422("Department Not Found.", res);
+        }
+        // Check if the provided department exists and is active 
+        const existingDepartmentQuery = "SELECT * FROM departments WHERE department_name  = ? AND department_id !=?";
+        const existingDepartmentResult = await connection.query(existingDepartmentQuery, [department_name, departmentId]);
+
+        if (existingDepartmentResult[0].length > 0) {
+            return error422("Department already exists.", res);
+        }
+
+        // Update the department record with new data
+        const updateQuery = `
+            UPDATE departments
+            SET department_name = ?, description = ?
+            WHERE department_id = ?
+        `;
+
+        await connection.query(updateQuery, [ department_name, description, departmentId]);
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Department updated successfully.",
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
+//status change of Department...
+const onStatusChange = async (req, res) => {
+    const departmentId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
+
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the departments exists
+        const departmentsQuery = "SELECT * FROM departments WHERE department_id = ? ";
+        const departmentsResult = await connection.query(departmentsQuery, [departmentId]);
+
+        if (departmentsResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Department not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+
+        // Soft update the department status
+        const updateQuery = `
+            UPDATE departments
+            SET status = ?
+            WHERE department_id = ?
+        `;
+
+        await connection.query(updateQuery, [status, departmentId]);
+
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Department ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
 
 //all departments list
 const getAllDepartment = async (req, res) => {
@@ -104,6 +249,39 @@ const getAllDepartment = async (req, res) => {
     }
 } 
 
+//Department list by id
+const getDepartment = async (req, res) => {
+    const departmentId = parseInt(req.params.id);
+    
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const departmentQuery = `SELECT * FROM departments
+        WHERE department_id = ?`;
+        const departmentResult = await connection.query(departmentQuery, [departmentId]);
+
+        if (departmentResult[0].length == 0) {
+            return error422("Department Not Found.", res);
+        }
+        const department = departmentResult[0][0];
+
+        return res.status(200).json({
+            status: 200,
+            message: "Department Retrived Successfully",
+            data: department
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
 //get Department active...
 const getDepartmentsWma = async (req, res) => {
 
@@ -138,7 +316,11 @@ const getDepartmentsWma = async (req, res) => {
 }
 
 module.exports = {
+    createDepartment,
     getAllDepartment,
-    getDepartmentsWma
+    getDepartmentsWma,
+    updateDepartment,
+    onStatusChange,
+    getDepartment
    
 }

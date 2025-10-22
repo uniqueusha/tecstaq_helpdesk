@@ -27,7 +27,50 @@ error500 = (error, res) => {
     });
 }
 
+// add Priority...
+const addPriority = async (req, res) => {
+    const name = req.body.name ? req.body.name.trim() : '';
+    const response_time_hrs = req.body.response_time_hrs ? req.body.response_time_hrs :'';
+    const resolution_time_hrs = req.body.resolution_time_hrs ? req.body.resolution_time_hrs :'';
+    
+    if (!name) {
+        return error422("Name is required.", res);
+    }
 
+    //check Priority already exists or not
+    const isExistPriorityQuery = `SELECT * FROM priorities WHERE name = ? `;
+    const isExistPriorityResult = await pool.query(isExistPriorityQuery, [name]);
+    if (isExistPriorityResult[0].length > 0) {
+        return error422("Priority is already exists.", res);
+    }
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        //insert into priority
+        const insertPriorityQuery = `INSERT INTO priorities (name, response_time_hrs, resolution_time_hrs ) VALUES (?, ?, ?)`;
+        const insertPriorityValues = [name, response_time_hrs, resolution_time_hrs];
+        const priorityResult = await connection.query(insertPriorityQuery, insertPriorityValues);
+
+        // Commit the transaction
+        await connection.commit();
+        res.status(200).json({
+            status: 200,
+            message: "Priority added successfully",
+        });
+    } catch (error) {
+        console.log(error);
+        
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 
 // get Priority list...
 const getAllPriorities = async (req, res) => {
@@ -129,8 +172,155 @@ const getPriorityWma = async (req, res) => {
     }
 }
 
+// get priority by id...
+const getPriority = async (req, res) => {
+    const priorityId = parseInt(req.params.id);
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        const priorityQuery = `SELECT * FROM priorities 
+        WHERE priority_id = ?`;
+        const priorityResult = await connection.query(priorityQuery, [priorityId]);
+
+        if (priorityResult[0].length == 0) {
+            return error422("Priority Not Found.", res);
+        }
+        const priority = priorityResult[0][0];
+
+        return res.status(200).json({
+            status: 200,
+            message: "Priority Retrived Successfully",
+            data: priority
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
+//priority  update...
+const updatePriority = async (req, res) => {
+    const priorityId = parseInt(req.params.id);
+    const name = req.body.name ? req.body.name.trim() : '';
+    const response_time_hrs = req.body.response_time_hrs ? req.body.response_time_hrs :'';
+    const resolution_time_hrs = req.body.resolution_time_hrs ? req.body.resolution_time_hrs :'';
+
+    if (!name) {
+        return error422("Priority name is required.", res);
+    }
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if status exists
+        const priorityQuery = "SELECT * FROM priorities WHERE priority_id  = ?";
+        const priorityResult = await connection.query(priorityQuery, [priorityId]);
+        if (priorityResult[0].length == 0) {
+            return error422("Priority Not Found.", res);
+        }
+        // Check if the provided Priority exists and is active 
+        const existingPriorityQuery = "SELECT * FROM priorities WHERE name  = ? AND priority_id !=?";
+        const existingPriorityResult = await connection.query(existingPriorityQuery, [name, priorityId]);
+
+        if (existingPriorityResult[0].length > 0) {
+            return error422("Priority already exists.", res);
+        }
+
+        // Update the Priority record with new data
+        const updateQuery = `
+            UPDATE priorities
+            SET name = ?, response_time_hrs = ?, resolution_time_hrs = ?
+            WHERE priority_id = ?
+        `;
+
+        await connection.query(updateQuery, [name, response_time_hrs, resolution_time_hrs, priorityId]);
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Priority updated successfully.",
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
+
+//status change of priority...
+const onStatusChange = async (req, res) => {
+    const priorityId = parseInt(req.params.id);
+    const status = parseInt(req.query.status); // Validate and parse the status parameter
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        // Check if the priority exists
+        const priorityQuery = "SELECT * FROM priorities WHERE priority_id = ?";
+        const priorityResult = await connection.query(priorityQuery, [priorityId]);
+
+        if (priorityResult[0].length == 0) {
+            return res.status(404).json({
+                status: 404,
+                message: "Priority not found.",
+            });
+        }
+
+        // Validate the status parameter
+        if (status !== 0 && status !== 1) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid status value. Status must be 0 (inactive) or 1 (active).",
+            });
+        }
+
+        // Soft update the priority
+        const updateQuery = `
+            UPDATE priorities
+            SET status = ?
+            WHERE priority_id = ?
+        `;
+
+        await connection.query(updateQuery, [status, priorityId]);
+
+        const statusMessage = status === 1 ? "activated" : "deactivated";
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: `Priority ${statusMessage} successfully.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+};
+
 module.exports = {
+    addPriority,
     getAllPriorities,
     getPriorityWma,
+    updatePriority,
+    onStatusChange,
+    getPriority
     
 }
