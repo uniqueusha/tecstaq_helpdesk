@@ -179,7 +179,7 @@ const createUser = async (req, res) => {
       await transporter.sendMail(mailOptions);
       return res.status(200).json({
         status: 200,
-        message: `User created successfully and email sent to ${email_id}.`,
+        message: `User created successfully.`,
       });
     } catch (emailError) {
       console.error("Email sending failed:", emailError);
@@ -649,64 +649,122 @@ const getAgentsWma = async (req, res) => {
     }
 }
 
-// const sendEmail = async (req, res) => {
-//     const email_id = req.body.email_id;
-//     if (!email_id) return error422("Email is required.", res);
+//change password
+const onChangePassword = async (req, res) => {
+    const email_id = req.body.email_id ? req.body.email_id.trim() : "";
+    const password = req.body.password || "";
+    const new_password = req.body.new_password || "";
+    const new_email = req.body.new_email ? req.body.new_email.trim() : "";
+    if (!email_id) {
+        return error422("Email Id required.", res);
+    }
+    if (!password) {
+        return error422("Password is required.", res);
+    }
+    if (!new_password) {
+        return error422("New password is required.", res);
+    }
 
-//     let connection = await getConnection();
-//     try {
-//         await connection.beginTransaction();
+    let connection = await getConnection();
 
-//         const message = `
-//         <!DOCTYPE html>
-//         <html lang="en">
-//         <head>
-//           <meta charset="UTF-8">
-//           <title>Welcome to Tecstaq-desk.com</title>
-//           <style>
-//               div { font-family: Arial, sans-serif; margin: 0; padding: 0; color:black; }
-//           </style>
-//         </head>
-//         <body>
-//         <div>
-//            <h2>Hello world</h2>
-//         </div>
-//         </body>
-//         </html>`;
+    try {
+        await connection.beginTransaction();
 
-//         const mailOptions = {
-//             from: "support@tecstaq.com",
-//             to: email_id,
-//             bcc: "sushantsjamdade@gmail.com",
-//             subject: "Reset Your Tecstaq-desk Email",
-//             html: message,
-//         };
+        // Check if email_id exists
+        const checkUserQuery = "SELECT * FROM users WHERE LOWER(TRIM(email_id)) = ? AND status = 1";
+        const [checkUserResult] = await connection.query(checkUserQuery, [email_id.toLowerCase()]);
+        if (checkUserResult.length === 0) {
+            return error422('Email id is not found.', res);
+        }
 
-//         await transporter.sendMail(mailOptions);
+        const userData = checkUserResult[0]; // Extract the first row
 
-//         return res.status(200).json({
-//             status: 200,
-//             message: `Email sent successfully to ${email_id}`
-//         });
-//     } catch (error) {
-//         return error500(error, res);
-//     } finally {
-//         if (connection) connection.release();
-//     }
-// };
+        // Retrieve the hashed password from the database (update column name if needed)
+        const untitledQuery = 'SELECT extenstions FROM untitled WHERE user_id = ?';
+        const [untitledResult] = await connection.query(untitledQuery, [userData.user_id]);
 
-const sendEmail = async (req, res) => {
-    const { email_id } = req.query;
+        if (untitledResult.length === 0) {
+            return error422("Password not found for this user.", res);
+        }
+
+        const hash = untitledResult[0].extenstions;
+        if (!hash) {
+            return error422('Stored password hash is missing.', res);
+        }
+
+        const isValid = await bcrypt.compare(password, hash);
+        if (!isValid) {
+            return error422('Incorrect password.', res);
+        }
+
+        // Hash the new password
+        const newHashedPassword = await bcrypt.hash(new_password, 10);
+
+        // Update the user's password in the database
+        const updatePasswordQuery = `UPDATE untitled SET extenstions = ? WHERE user_id = ?`;
+        await connection.query(updatePasswordQuery, [newHashedPassword, userData.user_id]);
+
+        // If new email is provided, update it
+        if (new_email) {
+            // Check if the new email already exists
+            const checkNewEmailQuery = "SELECT email_id FROM users WHERE LOWER(TRIM(email_id)) = ?";
+            const [emailCheckResult] = await connection.query(checkNewEmailQuery, [new_email.toLowerCase()]);
+
+            if (emailCheckResult.length > 0) {
+                return error422("New email is already in use.", res);
+            }
+
+            // Update the email
+            const updateEmailQuery = `UPDATE users SET email_id = ? WHERE user_id = ?`;
+            await connection.query(updateEmailQuery, [new_email, userData.user_id]);
+        }
+
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Password updated successfully."
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+//send otp 
+const sendOtp = async (req, res) => {
+    const email_id = req.body.email_id;
     if (!email_id) {
         return error422("Email is  required.", res);
     }
+    // Check if email_id exists
+    const query = 'SELECT * FROM users WHERE TRIM(LOWER(email_id)) = ?';
+    const result = await pool.query(query, [email_id.toLowerCase()]);
+    if (result[0].length === 0) {
+        return error422('Email id is not found.', res);
+    }
+
+    let user_name = result[0][0].user_name;
+
+    let connection = await getConnection();
     try {
+        //Start the transaction
+        await connection.beginTransaction();
+        const otp = Math.floor(100000 + Math.random() * 900000);
+        const deleteQuery = `DELETE FROM otp WHERE cts < NOW() - INTERVAL 5 MINUTE`;
+        const deleteResult = await connection.query(deleteQuery);
+
+        const otpQuery = "INSERT INTO otp (otp, email_id) VALUES (?, ?)";
+        const otpResult = await connection.query(otpQuery, [otp, email_id])
+
         const message = `
       <!DOCTYPE html>
         <html lang="en">
         <head>
           <meta charset="UTF-8">
-          <title>Welcome to test</title>
+          <title>Welcome to Tecstaq-helddesk.com</title>
           <style>
               div{
               font-family: Arial, sans-serif; 
@@ -718,12 +776,17 @@ const sendEmail = async (req, res) => {
         </head>
         <body>
         <div>
-       <h2 style="text-transform: capitalize;">Hello User,</h2>
-        
-        <li>Thank you for using test Application!</li>
+       <h2 style="text-transform: capitalize;">Hello ${user_name},</h2>
+        <p>It seems you requested a password reset for your Tecstaq-helddesk account. Use the OTP below to complete the process and regain access to your account.</p>
+        <h3>Your OTP: <strong>${otp}</strong></h3>
+        <p>For security, this OTP will expire in 5 minutes. Please don’t share this code with anyone. If you didn’t request a password reset, please ignore this email or reach out to our support team for assistance.</p>
+        <h4>What’s Next?</h4>
+        <ol>
+          <li>Enter the OTP on the password reset page.</li>
+          <li>Set your new password, and you’re all set to log back in.</li>
+        <li>Thank you for using Tecstaq-helddesk Application!</li>
         </ol>
-        <p>Best regards,<br>Team test</p>
-        
+        <p>Best regards,<br>The Tecstaq-helddesk Team</p>
          </div>
         </body>
         </html>`;
@@ -739,31 +802,259 @@ const sendEmail = async (req, res) => {
         const mailOptions = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: `${email_id}`, // Recipient's name and email address.
-            bcc: ["rohitlandage86@gmail.com","sushantsjamdade@gmail.com","ushamyadav777@gmail.com"],
-            subject: "Testing mail", // Subject line.
+            //    replyTo: "rohitlandage86@gmail.com", // Sets the email address for recipient responses.
+            //  bcc: "sushantsjamdade@gmail.com",
+            bcc: "sushantsjamdade@gmail.com",
+            subject: "Reset Your Tecstaq-crm Password – OTP Inside", // Subject line.
             html: message,
         };
 
+        // Send email 
         await transporter.sendMail(mailOptions);
 
         return res.status(200).json({
             status: 200,
-            message: `Mail sent successfully to ${email_id}.`,
+            message: `OTP sent successfully to ${email_id}.`,
 
         })
     } catch (error) {
         return error500(error, res)
+    } finally {
+        if (connection) connection.release()
     }
 }
+
+//verify otp
+const verifyOtp = async (req, res) => {
+    const otp = req.body.otp ? req.body.otp : null;
+    const email_id = req.body.email_id ? req.body.email_id.trim() : null;
+    if (!otp) {
+        return error422("Otp is required.", res);
+    } else if (!email_id) {
+        return error422("Email id is required.", res);
+    }
+
+    let connection = await getConnection();
+    try {
+        //Start the transaction
+        await connection.beginTransaction();
+
+        // Delete expired OTPs
+
+        const deleteQuery = `DELETE FROM otp WHERE cts < NOW() - INTERVAL 5 MINUTE`;
+        const deleteResult = await connection.query(deleteQuery);
+
+        // Check if OTP is valid and not expired
+        const verifyOtpQuery = `
+        SELECT * FROM otp 
+        WHERE TRIM(LOWER(email_id)) = ? AND otp = ?
+      `;
+        const verifyOtpResult = await connection.query(verifyOtpQuery, [email_id.trim().toLowerCase(), otp]);
+
+        // If no OTP is found, return a failed verification message
+        if (verifyOtpResult[0].length === 0) {
+            return error422("OTP verification failed.", res);
+        }
+
+        // Check if the OTP is expired
+        const otpData = verifyOtpResult;
+        const otpCreatedTime = otpData.cts;
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+        if (otpCreatedTime < fiveMinutesAgo) {
+            return error422("OTP has expired. Please request a new one.", res);
+        }
+
+        // OTP is valid and within the 5-minute limit
+        return res.status(200).json({
+            status: 200,
+            message: "OTP verified successfully"
+        });
+
+    } catch (error) {
+        return error500(error, res)
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+//check email_id
+const checkEmailId = async (req, res) => {
+    const email_id = req.body.email_id ? req.body.email_id.trim() : ""; // Extract and trim email_id from request body
+    if (!email_id) {
+        return error422("Email Id required.", res);
+    }
+
+    let connection = await getConnection();
+    try {
+        //Start the transaction
+        await connection.beginTransaction();
+
+        // Check if email_id exists
+        const query = 'SELECT * FROM users WHERE TRIM(LOWER(email_id)) = ?';
+        const result = await connection.query(query, [email_id.toLowerCase()]);
+        if (result[0].length === 0) {
+            return error422('Email id is not found.', res);
+        }
+        const untitledData = result;
+
+        return res.status(200).json({
+            status: 200,
+            message: "Email Id Exists",
+            email_id: true,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+//forget password
+const forgotPassword = async (req, res) => {
+    const email_id = req.body.email_id ? req.body.email_id.trim() : null;
+    const newPassword = req.body.newPassword ? req.body.newPassword.trim() : null;
+    const confirmPassword = req.body.confirmPassword ? req.body.confirmPassword.trim() : null;
+    if (!email_id) {
+        return error422("Email id is requried", res);
+    } else if (!newPassword) {
+        return error422("New password is required.", res);
+    } else if (!confirmPassword) {
+        return error422("Confirm password is required.", res);
+    } else if (newPassword !== confirmPassword) {
+        return error422("New password and Confirm password do not match.", res);
+    }
+
+    let connection = await getConnection();
+    try {
+        //Start the transaction
+        await connection.beginTransaction();
+
+        // Check if email_id exists
+        const query = 'SELECT * FROM users WHERE TRIM(LOWER(email_id)) = ?';
+        const result = await connection.query(query, [email_id.toLowerCase()]);
+        if (result[0].length === 0) {
+            return error404('Email id is not found.', res);
+        }
+        const untitledData = result[0][0];
+
+        // Hash the new password
+        const hash = await bcrypt.hash(confirmPassword, 10);
+
+        const updateQuery = `UPDATE untitled SET extenstions = ? WHERE user_id = ?`;
+        const [updateResult] = await connection.query(updateQuery, [hash, untitledData.user_id]);
+
+        // Commit the transaction
+        await connection.commit();
+        return res.status(200).json({
+            status: 200,
+            message: "Password has been updated successfully"
+        })
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
+const sendOtpIfEmailIdNotExists = async (req, res) => {
+    const email_id = req.body.email_id;
+    if (!email_id) {
+        return error422("Email is required.", res);
+    }
+
+    // Check if email_id exists
+    const query = 'SELECT * FROM users WHERE TRIM(LOWER(email_id)) = ?';
+    const result = await pool.query(query, [email_id.toLowerCase()]);
+
+    if (result.rowCount > 0) {
+        // If email_id exists, return an error response
+        return error422('Email ID already exists. OTP will not be sent.', res);
+    }
+
+    let connection = await getConnection();
+    try {
+        //Start the transaction
+        await connection.beginTransaction();
+
+        // Generate a 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000);
+
+        // Delete expired OTPs from the table (older than 5 minutes)
+        const deleteQuery = `DELETE FROM otp WHERE cts < NOW() - INTERVAL 5 MINUTE`;
+        const deleteResult = await connection.query(deleteQuery);
+
+        // Insert the new OTP into the database
+        const otpQuery = "INSERT INTO otp (otp, email_id) VALUES (?, ?)";
+        await connection.query(otpQuery, [otp, email_id]);
+
+        // Compose the email message with OTP details
+        const message = `
+      <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to Tecstaq-crm.com</title>
+          <style>
+              div {
+                font-family: Arial, sans-serif; 
+                margin: 0px;
+                padding: 0px;
+                color: black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+          <h2>Hello,</h2>
+          <p>Thank you for registering at Tecstaq-crm.com. Use the OTP below to complete your registration.</p>
+          <h3>Your OTP: <strong>${otp}</strong></h3>
+          <p>This OTP will expire in 5 minutes. Please don’t share this code with anyone.</p>
+          <p>Best regards,<br>The Tecstaq-crm Team</p>
+        </div>
+        </body>
+        </html>`;
+
+        // Email options
+        const mailOptions = {
+            from: "wmdevelopment@wmdevelopment.co.in",
+            to: email_id,
+            // replyTo: "rohitlandage86@gmail.com",
+            bcc: "sushantsjamdade@gmail.com",
+            //bcc: "ushamyadav777@gmail.com"
+            subject: "Your Task Registration OTP",
+            html: message,
+        };
+
+        // Send the email
+        await transporter.sendMail(mailOptions);
+
+        // Return success response
+        return res.status(200).json({
+            status: 200,
+            message: `OTP sent successfully to ${email_id}.`,
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
   createUser,
   login,
   getUsers,
   getUserWma,
   getAgentsWma,
-  sendEmail,
   getTechnicianWma,
   getUser,
   updateUser,
-  onStatusChange
+  onStatusChange,
+  onChangePassword,
+  sendOtp,
+  verifyOtp,
+  checkEmailId,
+  forgotPassword,
+  sendOtpIfEmailIdNotExists
 };

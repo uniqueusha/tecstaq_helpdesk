@@ -7,8 +7,6 @@ const checkAuth = require('../middleware/check.auth')
 router.post('/', userController.createUser);
 //login  
 router.post('/login', userController.login);
-//send mail
-router.post('/send-email', userController.sendEmail);
 //all list
 router.get('/', userController.getUsers);
 //active list
@@ -20,9 +18,18 @@ router.get('/customer-wma', userController.getAgentsWma);
 router.get('/technician-wma', userController.getTechnicianWma);
 //by id 
 router.get('/:id', userController.getUser);
+//change password
+router.put('/change-password',userController.onChangePassword);
 //update user
 router.put('/:id', userController.updateUser);
 //status change
-router.patch('/:id', userController.onStatusChange)
+router.patch('/:id', userController.onStatusChange);
+
+router.post('/send-otp',userController.sendOtp);
+router.post('/verify-otp',userController.verifyOtp);
+router.post('/check-emailid',userController.checkEmailId);
+router.post('/forgot-Password',userController.forgotPassword);
+router.post('/send-otp-if-email-not-exists',userController.sendOtpIfEmailIdNotExists);
+
 
 module.exports = router
