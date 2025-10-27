@@ -7,6 +7,8 @@ const checkAuth = require('../middleware/check.auth')
 router.post('/', departmentController.createDepartment);
 //get department
 router.get('/', departmentController.getAllDepartment);
+//download
+router.get('/download', departmentController.getDepartmentDownload);
 //active list
 router.get('/wma', departmentController.getDepartmentsWma);
 //get id by department

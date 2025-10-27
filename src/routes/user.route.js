@@ -31,5 +31,8 @@ router.post('/check-emailid',userController.checkEmailId);
 router.post('/forgot-Password',userController.forgotPassword);
 router.post('/send-otp-if-email-not-exists',userController.sendOtpIfEmailIdNotExists);
 
+//delete Technician
+router.delete('/:id',userController.deleteTechnician)
+
 
 module.exports = router

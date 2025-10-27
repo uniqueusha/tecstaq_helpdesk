@@ -126,10 +126,6 @@ const createUser = async (req, res) => {
 
         //commit the transation
         await connection.commit();
-        // res.status(200).json({
-        //     status: 200,
-        //     message: `User added successfully`,
-        // });
 
         // try {
         const message = `
@@ -170,7 +166,7 @@ const createUser = async (req, res) => {
         const mailOptions = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: `${email_id}`, // Recipient's name and email address."sushantsjamdade@gmail.com",
-            bcc: ["rohitlandage86@gmail.com","sushantsjamdade@gmail.com","ushamyadav777@gmail.com"],
+            bcc: ["sushantsjamdade@gmail.com"],
             subject: "Welcome to Tecstaq HelpDesk Support! Your Account Has Been Created", // Subject line.
             html: message,
         };
@@ -395,6 +391,7 @@ const getUser = async (req, res) => {
 
 //Update User
 const updateUser = async (req, res) => {
+    const userId = parseInt(req.params.id);
     const user_name = req.body.user_name ? req.body.user_name.trim() : "";
     const email_id = req.body.email_id ? req.body.email_id.trim() : "";
     const phone_number = req.body.phone_number ? req.body.phone_number : null;
@@ -994,7 +991,7 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
         <html lang="en">
         <head>
           <meta charset="UTF-8">
-          <title>Welcome to Tecstaq-crm.com</title>
+          <title>Welcome to Tecstaq-helpdesk.com</title>
           <style>
               div {
                 font-family: Arial, sans-serif; 
@@ -1007,22 +1004,22 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
         <body>
         <div>
           <h2>Hello,</h2>
-          <p>Thank you for registering at Tecstaq-crm.com. Use the OTP below to complete your registration.</p>
+          <p>Thank you for registering at Tecstaq-helpdesk.com. Use the OTP below to complete your registration.</p>
           <h3>Your OTP: <strong>${otp}</strong></h3>
           <p>This OTP will expire in 5 minutes. Please don’t share this code with anyone.</p>
-          <p>Best regards,<br>The Tecstaq-crm Team</p>
+          <p>Best regards,<br>The Tecstaq-helpdesk Team</p>
         </div>
         </body>
         </html>`;
 
         // Email options
         const mailOptions = {
-            from: "wmdevelopment@wmdevelopment.co.in",
+            from: "support@tecstaq.com",
             to: email_id,
             // replyTo: "rohitlandage86@gmail.com",
             bcc: "sushantsjamdade@gmail.com",
             //bcc: "ushamyadav777@gmail.com"
-            subject: "Your Task Registration OTP",
+            subject: "Your Registration OTP",
             html: message,
         };
 
@@ -1041,6 +1038,36 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
     }
 };
 
+//get Technician ...
+const deleteTechnician = async (req, res) => {
+    const { user_id} = req.query;
+    const customerId = parseInt(req.params.id);
+
+
+    // attempt to obtain a database connection
+    let connection = await getConnection();
+
+    try {
+
+        //start a transaction
+        await connection.beginTransaction();
+
+        let deleteTechnicianQuery = `DELETE FROM customer_agents WHERE user_id = ? AND customer_id = ?`;
+        const deleteTechnicianResult = await connection.query(deleteTechnicianQuery, [user_id, customerId]);
+
+        // Commit the transaction
+        await connection.commit();
+
+        return res.status(200).json({
+            status: 200,
+            message: "Technician Delete successfully."
+        });
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release()
+    }
+}
 module.exports = {
   createUser,
   login,
@@ -1056,5 +1083,6 @@ module.exports = {
   verifyOtp,
   checkEmailId,
   forgotPassword,
-  sendOtpIfEmailIdNotExists
+  sendOtpIfEmailIdNotExists,
+  deleteTechnician
 };

@@ -1,6 +1,20 @@
 const pool = require("../../db");
 const fs = require('fs');
 const path = require('path');
+const nodemailer = require("nodemailer");
+
+const transporter = nodemailer.createTransport({
+    host: "smtp-mail.outlook.com",
+    port: 587,
+    secure: false,
+    auth: {
+        user: "support@tecstaq.com",
+        pass: "Homeoffice@2025#$",
+    },
+    tls: {
+        rejectUnauthorized: false,
+    },
+ });
 
 
 
@@ -90,6 +104,7 @@ const createTicket = async (req, res)=>{
         const ticket_id = insertTicketResult[0].insertId
 
         
+        
       const cleanedBase64 = base64PDF.replace(/^data:.*;base64,/, "");
 const pdfBuffer = Buffer.from(cleanedBase64, "base64");
 
@@ -128,12 +143,98 @@ const dbFilePath = `uploads/${fileName}`;
         
     
         await connection.commit()
-        return res.status(200).json({
-            status:200,
-            message:"Ticket created successfully."
-        })
+        // return res.status(200).json({
+        //     status:200,
+        //     message:"Ticket created successfully."
+        // })
+
+        const userDataQuery = `SELECT user_name, email_id FROM users WHERE user_id = ?`;
+        const [userDataResult] = await connection.query(userDataQuery,[user_id]);
+        
+
+        const createdAtQuery = `SELECT created_at FROM tickets WHERE user_id = ?`;
+        const [createdAtResult] = await connection.query(createdAtQuery,[user_id]);
+        
+        const userAssignedDataQuery = `SELECT user_name, email_id FROM users WHERE user_id = ?`;
+        const [userAssignedDataResult] = await connection.query(userAssignedDataQuery,[assigned_to]);
+
+        const categoryDataQuery = `SELECT name FROM ticket_categories WHERE ticket_category_id = ?`;
+        const [categoryDataResult] = await connection.query(categoryDataQuery,[ticket_category_id]);
+
+        const priorityDataQuery = `SELECT name FROM priorities WHERE priority_id = ?`;
+        const [priorityDataResult] = await connection.query(priorityDataQuery,[priority_id]);
+
+        const created_user_name = userDataResult[0].user_name;
+        const created_email_id = userDataResult[0].email_id;
+        const category_name = categoryDataResult[0].name;
+        const priority_name = priorityDataResult[0].name;
+        const assigned_user_name = userAssignedDataResult[0].user_name;
+        const email_id = userAssignedDataResult[0].email_id;
+        const created_at = createdAtResult[0].created_at.toISOString().split('T')[0];
+
+        const message = `
+      <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to test</title>
+          <style>
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+       <h2 style="text-transform: capitalize;">Hi ${created_user_name},</h2>
+        <p>Your support ticket has been successfully created. Our team will review it shortly and get back to you as soon as possible.</p>
+        </p>Here are the details of your ticket:</p>
+        <p>Ticket No: ${ticket_no}</p>
+        <p>Subject: ${subject}</P>
+        <p>Category: ${category_name}</p>
+        <p>Priority: ${priority_name}</p>
+        <p>Description: ${description}</p>
+        <p>Created By: ${created_user_name}</p>
+        <p>Status: Open</p>
+        <p>Created On: ${created_at}</p>
+        <p>Thank you for reaching out to us.</p>
+          <p>We appreciate your patience and will resolve your query promptly.</p>
+          <p>Best regards,</p>
+          <p><strong>Tecstaq Support</strong></p>
+          <a href="suppprt@dani.com">suppprt@dani.com</a>
+
+        </div>
+        </body>
+        </html>`;
+
+        // Prepare the email message options.
+        const mailOptions = {
+            from: "support@tecstaq.com", // Sender address from environment variables.
+            to: [created_email_id, email_id], // Recipient's name and email address."sushantsjamdade@gmail.com",
+            bcc: ["sushantsjamdade@gmail.com"],
+            subject: `Ticket ${ticket_no} Created Successfully`,
+            html: message,
+        };
+        try {
+      await transporter.sendMail(mailOptions);
+      return res.status(200).json({
+        status: 200,
+        message: `Ticket created successfully.`,
+      });
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError);
+      return res.status(200).json({
+        status: 200,
+        message: "Ticket created successfully, but failed to send email.",
+      });
+    }
     } catch (error) {
-      
+        console.log(error);
+        
+        await connection.rollback();
         return error500(error, res);
     } finally{
         if (connection) connection.release();

@@ -1,6 +1,7 @@
 const pool = require("../../db");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const xlsx = require("xlsx");
+const fs = require("fs");
+const path = require('path');
 
 // Function to obtain a database connection
 const getConnection = async () => {
@@ -315,12 +316,83 @@ const getDepartmentsWma = async (req, res) => {
     }
 }
 
+//Department download
+const getDepartmentDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getDepartmentQuery = `SELECT * FROM departments
+        WHERE 1 AND status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getDepartmentQuery += ` AND (LOWER(department_name) LIKE '%${lowercaseKey}%')`;
+        }
+
+        getDepartmentQuery += " ORDER BY cts DESC";
+
+        let result = await connection.query(getDepartmentQuery);
+        let department = result[0];
+
+        if (department.length === 0) {
+            return error422("No data found.", res);
+        }
+
+
+        department = department.map((item, index) => ({
+            "Sr No": index + 1,
+            "Create Date": item.cts,
+            "Department Name":item.department_name,
+            "Description": item.description
+
+            // "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(department);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "DepartmentInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        console.log(error);
+        
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
     createDepartment,
     getAllDepartment,
     getDepartmentsWma,
     updateDepartment,
     onStatusChange,
-    getDepartment
+    getDepartment,
+    getDepartmentDownload
    
 }
