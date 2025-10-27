@@ -619,9 +619,9 @@ const getAgentsWma = async (req, res) => {
 
         let agentQuery = `SELECT u.*
         FROM users u
-        WHERE 1 AND u.status = 1 AND role_id = 2`;
+        WHERE 1 AND u.status = 1 AND u.role_id = 2`;
        
-        agentQuery += ` ORDER BY u.cts`;
+        agentQuery += ` ORDER BY u.created_at`;
         const agentResult = await connection.query(agentQuery);
         const agent = agentResult[0];
 
