@@ -2,6 +2,9 @@ const pool = require("../../db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const xlsx = require("xlsx");
+const fs = require("fs");
+const path = require('path');
 
 const transporter = nodemailer.createTransport({
     host: "smtp-mail.outlook.com",
@@ -15,6 +18,7 @@ const transporter = nodemailer.createTransport({
         rejectUnauthorized: false,
     },
  });
+
 // Function to obtain a database connection
 const getConnection = async () => {
   try {
@@ -24,6 +28,7 @@ const getConnection = async () => {
     throw new Error("Failed to obtain database connection: " + error.message);
   }
 };
+
 //error handle 422...
 error422 = (message, res) => {
   return res.status(422).json({
@@ -31,6 +36,7 @@ error422 = (message, res) => {
     message: message,
   });
 };
+
 //error handle 500...
 error500 = (error, res) => {
   return res.status(500).json({
@@ -39,6 +45,7 @@ error500 = (error, res) => {
     error: error,
   });
 };
+
 //error 404 handler...
 error404 = (message, res) => {
   return res.status(404).json({
@@ -1062,6 +1069,82 @@ const deleteTechnician = async (req, res) => {
     }
 };
 
+//User download
+const getUserDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getUserQuery = `SELECT u.*, d.department_name, r.role_name 
+        FROM users u 
+        LEFT JOIN departments d
+        ON d.department_id = u.department_id
+        LEFT JOIN roles r
+        ON r.role_id = u.role_id
+        WHERE 1 AND u.status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getUserQuery += ` AND (LOWER(name) LIKE '%${lowercaseKey}%')`;
+        }
+
+        getUserQuery += " ORDER BY u.created_at DESC";
+
+        let result = await connection.query(getUserQuery);
+        let user = result[0];
+
+        if (user.length === 0) {
+            return error422("No data found.", res);
+        }
+
+
+        user = user.map((item, index) => ({
+            "Sr No": index + 1,
+            "Create Date": item.cts,
+            "User Name":item.user_name,
+            "Email ID": item.email_id,
+            "Phone No.": item.phone_number,
+            "Role Name": item.role_name,
+            "Department Name":item.department_name
+
+            // "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(user);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "UserInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
   createUser,
   login,
@@ -1078,5 +1161,6 @@ module.exports = {
   checkEmailId,
   forgotPassword,
   sendOtpIfEmailIdNotExists,
-  deleteTechnician
+  deleteTechnician,
+  getUserDownload
 };

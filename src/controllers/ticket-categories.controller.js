@@ -1,6 +1,7 @@
 const pool = require("../../db");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const xlsx = require("xlsx");
+const fs = require("fs");
+const path = require('path');
 
 // Function to obtain a database connection
 const getConnection = async () => {
@@ -344,12 +345,86 @@ const getTicketCategoriesWma = async (req, res) => {
     }
 }
 
+//Ticket Categories download
+const getTicketCategoriesDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getTicketCategoriesQuery = `SELECT tc.*, d.department_name, p.name AS priority_name 
+        FROM ticket_categories tc
+        LEFT JOIN departments d ON d.department_id = tc.department_id
+        LEFT JOIN priorities p ON p.priority_id = tc.priority_id
+        WHERE 1 AND tc.status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getTicketCategoriesQuery += ` AND (LOWER(name) LIKE '%${lowercaseKey}%')`;
+        }
+
+        getTicketCategoriesQuery += " ORDER BY tc.cts DESC";
+
+        let result = await connection.query(getTicketCategoriesQuery);
+        let ticketCategories = result[0];
+
+        if (ticketCategories.length === 0) {
+            return error422("No data found.", res);
+        }
+
+
+        ticketCategories = ticketCategories.map((item, index) => ({
+            "Sr No": index + 1,
+            "Create Date": item.cts,
+            "Parent Category":item.parent_category,
+            "Name": item.name,
+            "Department Name": item.department_name,
+            "Priority Name": item.priority_name
+
+            // "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(ticketCategories);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "ticketCategoriesInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
     getAllTicketCategories,
     getTicketCategoriesWma,
     createTicketCategories,
     onStatusChange,
     updateTicketCategories,
-    getTicketCategories
+    getTicketCategories,
+    getTicketCategoriesDownload
    
 }

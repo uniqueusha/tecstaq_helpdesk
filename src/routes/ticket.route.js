@@ -15,6 +15,8 @@ router.get('/month-wise-status-count', ticketController.getMonthWiseStatusCount)
 router.get('/today-open-ticket', ticketController.getTodayOpenTicketList);
 //doc download
 router.get('/doc-download', ticketController.getDocumentDownload);
+//download
+router.get('/download', ticketController.getTicketDownload);
 //by id
 router.get('/:id', ticketController.getTicket)
 //update ticket

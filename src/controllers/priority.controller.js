@@ -318,12 +318,84 @@ const onStatusChange = async (req, res) => {
     }
 };
 
+//Priority download
+const getPriorityDownload = async (req, res) => {
+
+    const { key } = req.query;
+
+    let connection = await getConnection();
+    try {
+        await connection.beginTransaction();
+
+        let getPriorityQuery = `SELECT * FROM priorities
+        WHERE 1 AND status = 1`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            getPriorityQuery += ` AND (LOWER(name) LIKE '%${lowercaseKey}%')`;
+        }
+
+        getPriorityQuery += " ORDER BY cts DESC";
+
+        let result = await connection.query(getPriorityQuery);
+        let priority = result[0];
+
+        if (priority.length === 0) {
+            return error422("No data found.", res);
+        }
+
+
+        priority = priority.map((item, index) => ({
+            "Sr No": index + 1,
+            "Create Date": item.cts,
+            "Name":item.name,
+            "Response Time ": item.response_time_hrs,
+            "Resolution Time ": item.resolution_time_hrs
+
+            // "Status": item.status === 1 ? "activated" : "deactivated",
+        }));
+
+        // Create a new workbook
+        const workbook = xlsx.utils.book_new();
+
+        // Create a worksheet and add only required columns
+        const worksheet = xlsx.utils.json_to_sheet(priority);
+
+        // Add the worksheet to the workbook
+        xlsx.utils.book_append_sheet(workbook, worksheet, "PriorityInfo");
+
+        // Create a unique file name
+        const excelFileName = `exported_data_${Date.now()}.xlsx`;
+
+        // Write the workbook to a file
+        xlsx.writeFile(workbook, excelFileName);
+
+        // Send the file to the client
+        res.download(excelFileName, (err) => {
+            if (err) {
+                res.status(500).send("Error downloading the file.");
+            } else {
+                fs.unlinkSync(excelFileName);
+            }
+        });
+
+        await connection.commit();
+    } catch (error) {
+      console.log(error);
+      
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
     addPriority,
     getAllPriorities,
     getPriorityWma,
     updatePriority,
     onStatusChange,
-    getPriority
+    getPriority,
+    getPriorityDownload
     
 }

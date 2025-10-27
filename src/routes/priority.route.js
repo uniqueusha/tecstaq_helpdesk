@@ -8,6 +8,8 @@ router.post('/', priorityController.addPriority);
 router.get('/', priorityController.getAllPriorities);
 //active list  
 router.get('/wma', priorityController.getPriorityWma);
+//download
+router.get('/download', priorityController.getPriorityDownload);
 //get list by id
 router.get('/:id', priorityController.getPriority);
 // update priority
