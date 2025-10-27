@@ -826,7 +826,7 @@ const getTicketDownload = async (req, res) => {
         WHERE 1 `;
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
-            getTicketQuery += ` AND (LOWER(name) LIKE '%${lowercaseKey}%')`;
+            getTicketQuery += ` AND (LOWER(tc.name) LIKE '%${lowercaseKey}%')`;
         }
 
         if (fromDate && toDate) {
