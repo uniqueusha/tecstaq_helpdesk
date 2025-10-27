@@ -617,17 +617,11 @@ const getAgentsWma = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let agentQuery = `SELECT ca.*, u.user_name, u1.user_name AS customer_name
-        FROM customer_agents ca
-        LEFT JOIN users u ON u.user_id = ca.user_id
-        LEFT JOIN users u1 ON u1.user_id = ca.customer_id
-        WHERE 1 AND ca.status = 1`;
-
-        if (user_id) {
-        agentQuery += ` AND ca.customer_id = '${user_id}' OR ca.user_id = '${user_id}'`;
-        }
-
-        agentQuery += ` ORDER BY ca.cts`;
+        let agentQuery = `SELECT u.*
+        FROM users u
+        WHERE 1 AND u.status = 1 AND role_id = 2`;
+       
+        agentQuery += ` ORDER BY u.cts`;
         const agentResult = await connection.query(agentQuery);
         const agent = agentResult[0];
 

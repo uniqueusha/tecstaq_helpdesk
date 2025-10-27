@@ -782,6 +782,7 @@ const getDocumentDownload = async (req, res) => {
         
         // Construct absolute file path
         const filePath = path.join(__dirname, '..', '..', file_path);
+        
 
         // Check file exists
         if (!fs.existsSync(filePath)) {
