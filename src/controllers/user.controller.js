@@ -1043,7 +1043,6 @@ const deleteTechnician = async (req, res) => {
     const { user_id} = req.query;
     const customerId = parseInt(req.params.id);
 
-
     // attempt to obtain a database connection
     let connection = await getConnection();
 
@@ -1067,7 +1066,8 @@ const deleteTechnician = async (req, res) => {
     } finally {
         if (connection) connection.release()
     }
-}
+};
+
 module.exports = {
   createUser,
   login,

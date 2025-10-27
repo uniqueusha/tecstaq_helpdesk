@@ -232,8 +232,6 @@ const dbFilePath = `uploads/${fileName}`;
       });
     }
     } catch (error) {
-        console.log(error);
-        
         await connection.rollback();
         return error500(error, res);
     } finally{
@@ -586,7 +584,6 @@ const getTicketStatusCount = async (req, res) => {
     }
 };
 
-
 const getMonthWiseStatusCount = async (req, res) => {
     const { user_id, assigned_to } = req.query;
 
@@ -758,6 +755,53 @@ LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
 
     }
 };
+
+// gst doc download
+const getDocumentDownload = async (req, res) => {
+    const { ticket_id } = req.query;
+    
+    if (!ticket_id) {
+        return error422("Ticket id required",res);
+    }
+
+    let connection = await getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [rows] = await connection.query(
+            `SELECT file_path FROM ticket_attachments WHERE ticket_id = ?`,
+            [ticket_id]
+        );
+
+        if (!rows.length) {
+            return error422("No document found for this Customer",res);
+        }
+
+        const file_path = rows[0].file_path; // e.g., 'uploads/meeting_1_1752643314728.pdf'
+        
+        // Construct absolute file path
+        const filePath = path.join(__dirname, '..', '..', file_path);
+
+        // Check file exists
+        if (!fs.existsSync(filePath)) {
+            return error422("File not found on server",res);
+        }
+
+        // Force download with proper filename
+        const downloadFileName = path.basename(filePath);
+        return res.download(filePath, downloadFileName, (err) => {
+            if (err) {
+                return error422( "No Data Found",res );
+            }
+        });
+
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        if (connection) connection.release();
+    }
+};
 module.exports = {
   createTicket,
   updateTicket,
@@ -765,5 +809,6 @@ module.exports = {
   getTicket,
   getTicketStatusCount,
   getMonthWiseStatusCount,
-  getTodayOpenTicketList
+  getTodayOpenTicketList,
+  getDocumentDownload
 };
