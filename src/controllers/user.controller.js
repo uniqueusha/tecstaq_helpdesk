@@ -1041,8 +1041,7 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
 
 //get Technician ...
 const deleteTechnician = async (req, res) => {
-    const { user_id} = req.query;
-    const customerId = parseInt(req.params.id);
+    const agentId = parseInt(req.params.id);
 
     // attempt to obtain a database connection
     let connection = await getConnection();
@@ -1052,8 +1051,8 @@ const deleteTechnician = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let deleteTechnicianQuery = `DELETE FROM customer_agents WHERE user_id = ? AND customer_id = ?`;
-        const deleteTechnicianResult = await connection.query(deleteTechnicianQuery, [user_id, customerId]);
+        let deleteTechnicianQuery = `DELETE FROM customer_agents WHERE agent_id = ?`;
+        const deleteTechnicianResult = await connection.query(deleteTechnicianQuery, [agentId]);
 
         // Commit the transaction
         await connection.commit();
