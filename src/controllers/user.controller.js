@@ -1051,7 +1051,7 @@ const deleteTechnician = async (req, res) => {
         //start a transaction
         await connection.beginTransaction();
 
-        let deleteTechnicianQuery = `DELETE FROM customer_agents WHERE agent_id = ?`;
+        let deleteTechnicianQuery = `DELETE FROM customer_agents WHERE agents_id = ?`;
         const deleteTechnicianResult = await connection.query(deleteTechnicianQuery, [agentId]);
 
         // Commit the transaction
