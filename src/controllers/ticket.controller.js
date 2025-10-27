@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require("nodemailer");
 const xlsx = require("xlsx");
+const { log } = require("console");
 
 
 const transporter = nodemailer.createTransport({
@@ -539,17 +540,25 @@ const getTicketStatusCount = async (req, res) => {
             FROM tickets 
             WHERE 1
         `;
+        if (user_id) {
+            totalCountQuery += ` AND user_id = ${user_id}`;
+        }
+
         const totalCountResult = await connection.query(totalCountQuery);
         ticket_status_total_count = parseInt(totalCountResult[0][0].total);
 
-        const statusCountQuery = `
+        let statusCountQuery = `
             SELECT 
                 ticket_status,
                 COUNT(*) AS count
-            FROM tickets 
-            GROUP BY ticket_status
+            FROM tickets WHERE 1
+           
         `;
         
+        if (user_id) {
+            statusCountQuery += ` AND user_id = ${user_id}`;
+        }
+        statusCountQuery += ` GROUP BY ticket_status`
         const [statusCountResult] = await connection.query(statusCountQuery);
         
         // Step 4: Default statuses
