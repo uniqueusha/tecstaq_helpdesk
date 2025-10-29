@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer");
 const xlsx = require("xlsx");
 const fs = require("fs");
 const path = require('path');
+const { exec } = require("child_process");
 
 const transporter = nodemailer.createTransport({
     host: "smtp-mail.outlook.com",
@@ -1144,6 +1145,118 @@ const getUserDownload = async (req, res) => {
     }
 };
 
+// const getDB = async (req, res) => {
+//   let connection;
+
+//   try {
+//     // Attempt to obtain a database connection
+//     connection = await getConnection();
+
+//     // Start a transaction (optional, not really needed for export)
+//     await connection.beginTransaction();
+
+//     // Database credentials
+//     const DB_USER = "root";
+//     const DB_PASS = "Changeme@2025#";
+//     const DB_NAME = "tecstaq_helpdesk";
+
+//     // Backup file path
+//     const BACKUP_FILE = path.join(__dirname, "backup.sql");
+
+//     // Execute mysqldump command
+//     exec(`mysqldump -u ${DB_USER} -p${DB_PASS} ${DB_NAME}`, (error, stdout, stderr) => {
+//       if (error) {
+//         console.error("❌ Backup failed:", error.message);
+//         return res.status(500).json({ message: "Database backup failed", error: error.message });
+//       }
+
+//       // Write dump data to file
+//       fs.writeFileSync(BACKUP_FILE, stdout);
+//       console.log("✅ Database backup created successfully!");
+
+//       // Send the file for download
+//       res.download(BACKUP_FILE, `${DB_NAME}_backup.sql`, (err) => {
+//         if (err) {
+//           console.error("❌ File download error:", err.message);
+//           res.status(500).json({ message: "File download failed" });
+//         } else {
+//           console.log("📦 Backup file sent successfully!");
+//         }
+//       });
+//     });
+//   } catch (error) {
+//     console.error("❌ Error:", error);
+//     return error500(error, res);
+//   } finally {
+//     if (connection) connection.release();
+//   }
+// };
+
+
+const getDB = async (req, res) => {
+  let connection;
+
+  try {
+    // 1️⃣ Get a DB connection
+    connection = await getConnection();
+
+    // (Optional) Start a transaction
+    await connection.beginTransaction();
+
+    // 2️⃣ Database credentials
+    const DB_USER = "root@localhost";
+    const DB_PASS = " ";
+    const DB_NAME = "tecstaq_helpdesk";
+
+    // 3️⃣ Path to save backup file
+    const BACKUP_FILE = path.join(__dirname, `${DB_NAME}_backup.sql`);
+
+    // 4️⃣ Full path to mysqldump (Windows)
+    const MYSQLDUMP_PATH = `"C:\\xampp\\mysql\\bin\\mysqldump.exe"`;
+
+
+    // 5️⃣ Run the dump command
+    const dumpCommand = `${MYSQLDUMP_PATH} -u ${DB_USER} -p${DB_PASS} ${DB_NAME}`;
+
+    exec(dumpCommand, (error, stdout, stderr) => {
+      if (error) {
+        console.error("❌ Database backup failed:", error.message);
+        return res.status(500).json({
+          message: "Database backup failed",
+          error: error.message,
+        });
+      }
+
+      // 6️⃣ Write dump data to file
+      fs.writeFileSync(BACKUP_FILE, stdout);
+      console.log("✅ Database backup created successfully!");
+
+      // 7️⃣ Send file as download response
+      res.download(BACKUP_FILE, `${DB_NAME}_backup.sql`, (err) => {
+        if (err) {
+          console.error("❌ File download error:", err.message);
+          res.status(500).json({ message: "File download failed" });
+        } else {
+          console.log("📦 Backup file sent successfully!");
+
+          // 8️⃣ (Optional) Delete backup file after sending
+          setTimeout(() => {
+            fs.unlinkSync(BACKUP_FILE);
+            console.log("🧹 Temporary backup file deleted.");
+          }, 5000);
+        }
+      });
+    });
+  } catch (error) {
+    console.error("❌ Error:", error);
+    return error500(error, res);
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
+
+
 module.exports = {
   createUser,
   login,
@@ -1161,5 +1274,6 @@ module.exports = {
   forgotPassword,
   sendOtpIfEmailIdNotExists,
   deleteTechnician,
-  getUserDownload
+  getUserDownload,
+  getDB
 };

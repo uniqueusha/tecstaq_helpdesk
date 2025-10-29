@@ -18,6 +18,8 @@ router.get('/download', userController.getUserDownload);
 router.get('/customer-wma', userController.getAgentsWma);
 //active technician
 router.get('/technician-wma', userController.getTechnicianWma);
+//db download
+router.get('/db-download', userController.getDB);
 //by id 
 router.get('/:id', userController.getUser);
 //change password
