@@ -305,7 +305,6 @@ const dbFilePath = `uploads/${fileName}`;
         const insertTicketAttachmentQuery = "INSERT INTO ticket_attachments (ticket_id, ticket_conversation_id, file_path, uploaded_by)VALUES(?, ?, ?, ?)";
         const insertTicketAttachmentResult = await connection.query(insertTicketAttachmentQuery,[ticket_id, ticket_conversation_id, dbFilePath, user_id]);
 
-
         const insertTicketAssignedQuery = "INSERT INTO ticket_assignments (ticket_id, assigned_to, assigned_by, remarks)VALUES(?, ?, ?, ?)";
         const insertTicketAssignedResult = await connection.query(insertTicketAssignedQuery,[ticket_id, assigned_to, user_id,  remarks]);
 
@@ -483,13 +482,6 @@ const updateTicket = async (req, res) => {
         const updateTicketAttachmentQuery = "UPDATE ticket_attachments SET ticket_id = ?, ticket_conversation_id = ?, file_path = ?  WHERE ticket_id = ?";
         const updateTicketAttachmentResult = await connection.query(updateTicketAttachmentQuery,[ticketId, ticket_conversation_id, dbFilePath,  ticketId]);
 
-        // //assigned
-        // const assignedQuery = "SELECT * FROM users WHERE user_id = ? ";
-        // const assignedResult = await pool.query(assignedQuery, [assigned_to]);
-        // if (assignedResult[0].length == 0) {
-        //   return error422("User Not Found.", res);
-        // }
-        
         const updateTicketAssignedQuery = "UPDATE ticket_assignments SET ticket_id = ?, assigned_to = ?, assigned_at = ?, remarks = ? WHERE ticket_id = ?";
         const updateTicketAssignedResult = await connection.query(updateTicketAssignedQuery,[ticketId, assigned_to, assigned_at, remarks, ticketId]);
 
@@ -501,7 +493,6 @@ const updateTicket = async (req, res) => {
         const [selectTicketStatusHistoryResult] = await connection.query(selectTicketStatusHistoryQuery, [ticketId]);
         const old_status = selectTicketStatusHistoryResult[0].new_status;
         
-
         let insertTicketConversationQuery = 'INSERT INTO ticket_status_history (ticket_id, old_status, new_status, changed_by, remarks) VALUES (?, ?, ?, ?, ?)';
         let insertTicketConversationValues = [ ticketId, old_status, ticket_status, user_id, remarks];
         let insertTicketConversationResult = await connection.query(insertTicketConversationQuery, insertTicketConversationValues);
@@ -509,11 +500,110 @@ const updateTicket = async (req, res) => {
         // Commit the transaction
         await connection.commit();
 
+        const userQuery = `SELECT user_name, email_id FROM users WHERE role_id = 2 AND status = 1`;
+        const [userResult] = await connection.query(userQuery);
+
+for (let i = 0; i < userResult.length; i++) {
+            const element = userResult[i];
+            const technician_name = userResult[i].user_name;
+            const technician_email_id = userResult[i].email_id;
+            
+
+        const userDataQuery = `SELECT user_name, email_id FROM users WHERE user_id = ?`;
+        const [userDataResult] = await connection.query(userDataQuery,[user_id]);
+        
+        const createdAtQuery = `SELECT created_at,ticket_no FROM tickets WHERE ticket_id = ?`;
+        const [createdAtResult] = await connection.query(createdAtQuery,[ticketId]);
+
+        const assginedQuery = `SELECT remarks FROM ticket_assignments WHERE assigned_to = ?`;
+        const [assginedResult] = await connection.query(assginedQuery,[assigned_to]);
+        
+        const userAssignedDataQuery = `SELECT user_name, email_id FROM users WHERE user_id = ?`;
+        const [userAssignedDataResult] = await connection.query(userAssignedDataQuery,[assigned_to]);
+        
+        const categoryDataQuery = `SELECT name FROM ticket_categories WHERE ticket_category_id = ?`;
+        const [categoryDataResult] = await connection.query(categoryDataQuery,[ticket_category_id]);
+
+        const priorityDataQuery = `SELECT name FROM priorities WHERE priority_id = ?`;
+        const [priorityDataResult] = await connection.query(priorityDataQuery,[priority_id]);
+
+        const created_user_name = userDataResult[0].user_name;
+        const created_email_id = userDataResult[0].email_id;
+        const category_name = categoryDataResult[0].name;
+        const priority_name = priorityDataResult[0].name;
+        const assigned_user_name = userAssignedDataResult.user_name || null;
+        const email_id = userAssignedDataResult.email_id || null;
+        const remarks = assginedResult[0].remarks;
+        const ticket_no = createdAtResult[0].ticket_no;
+        const created_at = createdAtResult[0].created_at.toISOString().split('T')[0];
+
+        const message = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Welcome to test</title>
+          <style>
+              div{
+              font-family: Arial, sans-serif; 
+               margin: 0px;
+                padding: 0px;
+                color:black;
+              }
+          </style>
+        </head>
+        <body>
+        <div>
+        <h2 style="text-transform: capitalize;">Dear Team,</h2>
+        </p>Here are the details of your ticket:</p>
+        <p>Ticket No: ${ticket_no}</p>
+        <p>Subject: ${subject}</P>
+        <p>Category: ${category_name}</p>
+        <p>Priority: ${priority_name}</p>
+        <p>Description: ${description}</p>
+        <p>Created By: ${created_user_name}</p>
+        <p>Status: Open</p>
+        <p>Remark: ${remarks}</p>
+        <p>Created On: ${created_at}</p>
+        <p>Thank you for reaching out to us.</p>
+          <p>We appreciate your patience and will resolve your query promptly.</p>
+          <p>Best regards,</p>
+          <p><strong>Tecstaq Support</strong></p>
+          <a href="support@dani.com">support@dani.com</a>
+        </div>
+        </body>
+        </html>`;
+
+        // Prepare the email message options.
+        const mailOptions = {
+            from: "support@tecstaq.com", // Sender address from environment variables.
+            to: [created_email_id, email_id, technician_email_id], // Recipient's name and email address."sushantsjamdade@gmail.com",
+            bcc: ["sushantsjamdade@gmail.com"],
+            subject: `Ticket ${ticket_no} Update Successfully`,
+            html: message,
+        };
+    
+        try {
+        await transporter.sendMail(mailOptions);
+        return res.status(200).json({
+        status: 200,
+        message: `Ticket created successfully.`,
+        });
+    } catch (emailError) {
+        console.error("Email sending failed:", emailError);
+        return res.status(200).json({
+        status: 200,
+        message: "Ticket created successfully, but failed to send email.",
+        });
+    }
+    }
         return res.status(200).json({
             status: 200,
             message: "Ticket updated successfully.",
         });
     } catch (error) {
+        console.log(error);
+        
         return error500(error, res);
     } finally {
         if (connection) connection.release()
