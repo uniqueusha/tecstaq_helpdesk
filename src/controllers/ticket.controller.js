@@ -425,7 +425,9 @@ const updateTicket = async (req, res) => {
     const department_id = req.body.department_id ? req.body.department_id :'';
     const subject = req.body.subject ? req.body.subject.trim() :'';
     const description = req.body.description ? req.body.description.trim() :'';
-    const ticket_status = req.body.ticket_status ? req.body.ticket_status.trim() : null;
+    const ticket_status = req.body.ticket_status ? req.body.ticket_status.trim() : '';
+    console.log(ticket_status);
+    
     const closed_at = req.body.closed_at ? req.body.closed_at.trim(): null;
     const ticket_conversation_id = req.body.ticket_conversation_id ? req.body.ticket_conversation_id : null;
     const base64PDF = req.body.file_path ? req.body.file_path.trim() :'';
@@ -512,11 +514,15 @@ for (let i = 0; i < userResult.length; i++) {
         const userDataQuery = `SELECT user_name, email_id FROM users WHERE user_id = ?`;
         const [userDataResult] = await connection.query(userDataQuery,[user_id]);
         
-        const createdAtQuery = `SELECT created_at,ticket_no FROM tickets WHERE ticket_id = ?`;
+        const createdAtQuery = `SELECT created_at,ticket_no,ticket_status FROM tickets WHERE ticket_id = ?`;
         const [createdAtResult] = await connection.query(createdAtQuery,[ticketId]);
 
-        const assginedQuery = `SELECT remarks FROM ticket_assignments WHERE assigned_to = ?`;
+        const assginedQuery = `SELECT tc.remarks, tc.assigned_to, u.user_name FROM ticket_assignments tc 
+        LEFT JOIN users u ON u.user_id = tc.assigned_to
+        WHERE tc.assigned_to = ?`;
         const [assginedResult] = await connection.query(assginedQuery,[assigned_to]);
+        
+        
         
         const userAssignedDataQuery = `SELECT user_name, email_id FROM users WHERE user_id = ?`;
         const [userAssignedDataResult] = await connection.query(userAssignedDataQuery,[assigned_to]);
@@ -535,6 +541,8 @@ for (let i = 0; i < userResult.length; i++) {
         const email_id = userAssignedDataResult.email_id || null;
         const remarks = assginedResult[0].remarks;
         const ticket_no = createdAtResult[0].ticket_no;
+        const ticket_status = createdAtResult[0].ticket_status;
+        const assigned_name = assginedResult[0].user_name;
         const created_at = createdAtResult[0].created_at.toISOString().split('T')[0];
 
         const message = `
@@ -562,8 +570,9 @@ for (let i = 0; i < userResult.length; i++) {
         <p>Priority: ${priority_name}</p>
         <p>Description: ${description}</p>
         <p>Created By: ${created_user_name}</p>
-        <p>Status: Open</p>
+        <p>Status: ${ticket_status}</p>
         <p>Remark: ${remarks}</p>
+        <p>Assigned Name: ${assigned_name}</p>
         <p>Created On: ${created_at}</p>
         <p>Thank you for reaching out to us.</p>
           <p>We appreciate your patience and will resolve your query promptly.</p>
@@ -578,7 +587,7 @@ for (let i = 0; i < userResult.length; i++) {
         const mailOptions = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: [created_email_id, email_id, technician_email_id], // Recipient's name and email address."sushantsjamdade@gmail.com",
-            bcc: ["sushantsjamdade@gmail.com"],
+            // bcc: ["sushantsjamdade@gmail.com"],
             subject: `Ticket ${ticket_no} Update Successfully`,
             html: message,
         };
@@ -587,7 +596,7 @@ for (let i = 0; i < userResult.length; i++) {
         await transporter.sendMail(mailOptions);
         return res.status(200).json({
         status: 200,
-        message: `Ticket created successfully.`,
+        message: `Ticket Update successfully.`,
         });
     } catch (emailError) {
         console.error("Email sending failed:", emailError);
