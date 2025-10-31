@@ -175,7 +175,7 @@ const createUser = async (req, res) => {
         const mailOptions = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: `${email_id}`, // Recipient's name and email address."sushantsjamdade@gmail.com",
-            bcc: ["sushantsjamdade@gmail.com"],
+            // bcc: ["sushantsjamdade@gmail.com"],
             subject: "Welcome to Tecstaq HelpDesk Support! Your Account Has Been Created", // Subject line.
             html: message,
         };
@@ -804,7 +804,7 @@ const sendOtp = async (req, res) => {
             to: `${email_id}`, // Recipient's name and email address.
             //    replyTo: "rohitlandage86@gmail.com", // Sets the email address for recipient responses.
             //  bcc: "sushantsjamdade@gmail.com",
-            bcc: "sushantsjamdade@gmail.com",
+            // bcc: "sushantsjamdade@gmail.com",
             subject: "Reset Your Tecstaq-crm Password – OTP Inside", // Subject line.
             html: message,
         };
@@ -1020,7 +1020,7 @@ const sendOtpIfEmailIdNotExists = async (req, res) => {
             from: "support@tecstaq.com",
             to: email_id,
             // replyTo: "rohitlandage86@gmail.com",
-            bcc: "sushantsjamdade@gmail.com",
+            // bcc: "sushantsjamdade@gmail.com",
             //bcc: "ushamyadav777@gmail.com"
             subject: "Your Registration OTP",
             html: message,
@@ -1178,11 +1178,9 @@ const getDB = async (req, res) => {
     });
 
     await importer.import(sqlFilePath);
-    console.log('✅ Database import completed successfully!');
 
     // 5️⃣ Create backup after import
     const backupFolder = path.join(__dirname, '../db');
-    console.log(backupFolder);
     
     if (!fs.existsSync(backupFolder)) fs.mkdirSync(backupFolder, { recursive: true });
 
@@ -1196,7 +1194,6 @@ const getDB = async (req, res) => {
       DB_PASS ? `-p${DB_PASS}` : ''
     } ${DB_NAME} > "${backupFilePath}"`;
 
-    console.log('🗄️  Creating backup...');
     await new Promise((resolve, reject) => {
       exec(dumpCommand, (error, stdout, stderr) => {
         if (error) return reject(stderr || error.message);
@@ -1204,7 +1201,6 @@ const getDB = async (req, res) => {
       });
     });
 
-    console.log('✅ Backup created at:', backupFilePath);
 
     // 6️⃣ Commit and respond
     await connection.commit();
@@ -1217,16 +1213,6 @@ const getDB = async (req, res) => {
     if (connection) connection.release();
   }
 };
-
-
-
-
-
-
-
-    
-
-
 
 module.exports = {
   createUser,

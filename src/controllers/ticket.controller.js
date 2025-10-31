@@ -390,7 +390,7 @@ const dbFilePath = `uploads/${fileName}`;
         const mailOptions = {
             from: "support@tecstaq.com", // Sender address from environment variables.
             to: [created_email_id, email_id, technician_email_id], // Recipient's name and email address."sushantsjamdade@gmail.com",
-            bcc: ["sushantsjamdade@gmail.com"],
+            // bcc: ["sushantsjamdade@gmail.com"],
             subject: `Ticket ${ticket_no} Created Successfully`,
             html: message,
         };
@@ -1196,6 +1196,72 @@ const getTicketDownload = async (req, res) => {
     }
 };
 
+//status list
+const getStatusList = async (req, res) => {
+    const { page, perPage, key, user_id, ticket_status } = req.query;
+
+    let connection = await getConnection();
+
+    try {
+        // Start a transaction
+        await connection.beginTransaction();
+
+        // Employee count
+
+        let statusListQuery = `SELECT t.* FROM tickets t
+        WHERE 1 AND t.ticket_status = '${ticket_status}'`;
+
+        let countQuery = `SELECT COUNT(*) AS total FROM tickets t
+        WHERE 1 AND t.ticket_status = '${ticket_status}'`;
+
+        if (key) {
+            const lowercaseKey = key.toLowerCase().trim();
+            statusListQuery += ` AND (LOWER(t.subject) LIKE '%${lowercaseKey}%')`;
+            countQuery += ` AND (LOWER(t.subject) LIKE '%${lowercaseKey}%')`;
+        }
+
+        if (user_id) {
+            statusListQuery += ` AND t.user_id = ${user_id}`;
+            countQuery += ` AND t.user_id = ${user_id}`;
+        }
+
+        statusListQuery += " ORDER BY t.created_at DESC";
+
+        let total = 0;
+
+        if (page && perPage) {
+            const totalResult = await connection.query(countQuery);
+            total = parseInt(totalResult[0][0].total);
+            const start = (page - 1) * perPage;
+            statusListQuery += ` LIMIT ${perPage} OFFSET ${start}`;
+
+        }
+
+        let statusListResult = await connection.query(statusListQuery);
+
+        const data = {
+            status: 200,
+            message: "Status retrieved successfully",
+            data: statusListResult[0]
+        };
+        // Add pagination information if provided
+        if (page && perPage) {
+            data.pagination = {
+                per_page: perPage,
+                total: total,
+                current_page: page,
+                last_page: Math.ceil(total / perPage),
+            };
+        }
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return error500(error, res);
+    } finally {
+        await connection.release();
+    }
+};
+
 module.exports = {
   createTicket,
   updateTicket,
@@ -1205,5 +1271,6 @@ module.exports = {
   getMonthWiseStatusCount,
   getTodayOpenTicketList,
   getDocumentDownload,
-  getTicketDownload
+  getTicketDownload,
+  getStatusList
 };

@@ -17,6 +17,8 @@ router.get('/today-open-ticket', ticketController.getTodayOpenTicketList);
 router.get('/doc-download', ticketController.getDocumentDownload);
 //download
 router.get('/download', ticketController.getTicketDownload);
+//status list
+router.get('/status-list', ticketController.getStatusList);
 //by id
 router.get('/:id', ticketController.getTicket)
 //update ticket
