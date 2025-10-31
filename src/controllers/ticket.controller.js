@@ -1188,8 +1188,6 @@ const getTicketDownload = async (req, res) => {
 
         await connection.commit();
     } catch (error) {
-        console.log(error);
-        
         return error500(error, res);
     } finally {
         if (connection) connection.release();
@@ -1208,11 +1206,16 @@ const getStatusList = async (req, res) => {
 
         // Employee count
 
-        let statusListQuery = `SELECT t.* FROM tickets t
+        let statusListQuery = `SELECT t.*, u.user_name, tc.name FROM tickets t
+        LEFT JOIN users u ON u.user_id = t.user_id
+        LEFT JOIN ticket_categories tc ON tc.ticket_category_id = t.ticket_category_id
         WHERE 1 AND t.ticket_status = '${ticket_status}'`;
 
         let countQuery = `SELECT COUNT(*) AS total FROM tickets t
+        LEFT JOIN users u ON u.user_id = t.user_id
+        LEFT JOIN ticket_categories tc ON tc.ticket_category_id = t.ticket_category_id
         WHERE 1 AND t.ticket_status = '${ticket_status}'`;
+
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
