@@ -1146,7 +1146,7 @@ const getUserDownload = async (req, res) => {
     }
 };
 
-const getDB = async (req, res) => {
+const getDBlocal = async (req, res) => {
   let connection;
 
   try {
@@ -1213,6 +1213,73 @@ const getDB = async (req, res) => {
     if (connection) connection.release();
   }
 };
+
+
+const getDB = async (req, res) => {
+  let connection;
+
+  try {
+    // 1?? Create DB connection
+    connection = await getConnection();
+    await connection.beginTransaction();
+
+    // 2?? Database credentials
+    const DB_NAME = 'tecstaq_helpdesk';
+    const DB_USER = 'root';
+    const DB_PASS = 'Changeme@2025#';
+    const DB_HOST = 'localhost';
+
+    // 3?? Absolute path to the SQL file
+    const sqlFilePath = path.join(__dirname, '../../db.js'); 
+
+    if (!fs.existsSync(sqlFilePath)) {
+      throw new Error(`SQL file not found at path: ${sqlFilePath}`);
+    }
+
+    console.log('?? Importing from:', sqlFilePath);
+
+    // 4?? Import SQL file
+    const importer = new Importer({
+      host: DB_HOST,
+      user: DB_USER,
+      password: DB_PASS,
+      database: DB_NAME
+    });
+
+    await importer.import(sqlFilePath);
+
+    // 5?? Create backup after import
+    const backupFolder = path.join(__dirname, '../backup/database');
+    if (!fs.existsSync(backupFolder)) fs.mkdirSync(backupFolder, { recursive: true });
+
+    const backupFilePath = path.join(
+      backupFolder,
+      `${DB_NAME}_backup_${new Date().toISOString().slice(0, 10)}.sql`
+    );
+
+    // ? For Linux use mysqldump directly
+    const mysqldumpPath = `mysqldump`;
+    const dumpCommand = `${mysqldumpPath} -h ${DB_HOST} -u ${DB_USER} ${DB_PASS ? `-p${DB_PASS}` : ''} ${DB_NAME} > "${backupFilePath}"`;
+
+    await new Promise((resolve, reject) => {
+      exec(dumpCommand, (error, stdout, stderr) => {
+        if (error) return reject(stderr || error.message);
+        resolve(stdout);
+      });
+    });
+
+    // 6?? Commit and respond
+    await connection.commit();
+    res.send(`? Database imported successfully and backup created at: ${backupFilePath}`);
+  } catch (error) {
+    console.error('? Database import/backup failed:', error);
+    if (connection) await connection.rollback();
+    res.status(500).send(error.message);
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
 
 module.exports = {
   createUser,

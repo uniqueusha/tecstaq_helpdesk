@@ -1206,16 +1206,19 @@ const getStatusList = async (req, res) => {
 
         // Employee count
 
-        let statusListQuery = `SELECT t.*, u.user_name, tc.name FROM tickets t
+        let statusListQuery = `SELECT t.*, u.user_name, tc.name, ta.assigned_to, u1.user_name AS assigned_user_name FROM tickets t
         LEFT JOIN users u ON u.user_id = t.user_id
+        LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
+        LEFT JOIN users u1 ON u1.user_id = ta.assigned_to
         LEFT JOIN ticket_categories tc ON tc.ticket_category_id = t.ticket_category_id
         WHERE 1 AND t.ticket_status = '${ticket_status}'`;
 
         let countQuery = `SELECT COUNT(*) AS total FROM tickets t
         LEFT JOIN users u ON u.user_id = t.user_id
+        LEFT JOIN ticket_assignments ta ON ta.ticket_id = t.ticket_id
+        LEFT JOIN users u1 ON u1.user_id = ta.assigned_to
         LEFT JOIN ticket_categories tc ON tc.ticket_category_id = t.ticket_category_id
         WHERE 1 AND t.ticket_status = '${ticket_status}'`;
-
 
         if (key) {
             const lowercaseKey = key.toLowerCase().trim();
@@ -1259,6 +1262,8 @@ const getStatusList = async (req, res) => {
 
         return res.status(200).json(data);
     } catch (error) {
+        console.log(error);
+        
         return error500(error, res);
     } finally {
         await connection.release();
